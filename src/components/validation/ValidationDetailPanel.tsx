@@ -16,6 +16,7 @@ interface ValidationDetailPanelProps {
   estimated: number
   similarityAvg: number
   status: ImplementationStatus
+  dataSource?: 'api' | 'mock'
 }
 
 export function ValidationDetailPanel({
@@ -23,6 +24,7 @@ export function ValidationDetailPanel({
   estimated,
   similarityAvg,
   status,
+  dataSource = 'mock',
 }: ValidationDetailPanelProps) {
   const buildStatusVariant =
     detail.buildVerification.status === 'verified'
@@ -34,9 +36,14 @@ export function ValidationDetailPanel({
   return (
     <Card padding="none" className="flex h-full flex-col overflow-hidden">
       <div className="border-b border-border p-4">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-secondary" />
-          <h3 className="text-sm font-semibold text-text-primary">추정 구현 점수</h3>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-secondary" />
+            <h3 className="text-sm font-semibold text-text-primary">Estimated Implementation Score</h3>
+          </div>
+          <Badge variant="outline" className="text-[10px]">
+            {dataSource === 'api' ? 'validation API' : 'mock fallback'}
+          </Badge>
         </div>
         <p className="mt-0.5 text-[10px] text-text-secondary">AI 기반 추정 — 확정 구현률이 아닙니다</p>
       </div>
@@ -44,7 +51,7 @@ export function ValidationDetailPanel({
       <div className="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-thin">
         <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-center">
           <p className="text-4xl font-bold text-primary">~{estimated}%</p>
-          <p className="mt-1 text-xs text-text-secondary">추정 구현 점수</p>
+          <p className="mt-1 text-xs text-text-secondary">Estimated Implementation Score</p>
           <div className="mt-3">
             <StatusBadge status={status} />
           </div>

@@ -14,7 +14,7 @@ interface DashboardKpiCardsProps {
 }
 
 export function DashboardKpiCards({ stats }: DashboardKpiCardsProps) {
-  const { documentSummary, latestBuild } = stats
+  const { traceabilitySummary, latestBuild } = stats
 
   const cards = [
     {
@@ -43,9 +43,9 @@ export function DashboardKpiCards({ stats }: DashboardKpiCardsProps) {
     },
     {
       icon: Files,
-      label: '생성된 문서',
-      value: `${documentSummary.total}개`,
-      sub: `SRS ${documentSummary.srs} · PRD ${documentSummary.prd} · BRS ${documentSummary.brs}`,
+      label: '추적성 링크',
+      value: `${traceabilitySummary.codeFiles}개`,
+      sub: `문서 ${traceabilitySummary.documents} · 빌드 ${traceabilitySummary.builds} · 테스트 ${traceabilitySummary.tests}`,
       accent: 'text-primary',
       bg: 'bg-primary/10',
     },

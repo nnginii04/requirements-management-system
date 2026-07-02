@@ -65,6 +65,8 @@ validationRouter.get('/', (req, res) => {
       estimated: item.estimated,
       status: item.status,
       similarityAvg: item.similarityAvg,
+      matchedFilesCount: item.detail?.matches.filter((m) => m.score >= 0.4).length ?? 0,
+      missingLogicCount: item.detail?.missingLogic.length ?? 0,
     }))
 
   res.json({ data: items })

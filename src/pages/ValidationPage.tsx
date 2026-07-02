@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { GitBranch, Sparkles, RefreshCw } from 'lucide-react'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { Card } from '@/components/ui/Card'
@@ -17,12 +17,22 @@ import { useApp } from '@/contexts/AppContext'
 import { useValidationFilters } from '@/hooks/useValidationFilters'
 import type { ValidationResponse } from '@/api/client'
 import { asImplementationStatus, loadValidationDetail } from '@/utils/validationApi'
+import {
+  loadValidationList,
+  type ValidationListEntry,
+  type ValidationListSource,
+} from '@/utils/validationListApi'
+import { loadRequirementTraceability, type TraceabilitySource } from '@/utils/traceabilityApi'
 
 export function ValidationPage() {
   const workflow = useWorkflow()
   const { requirements, apiConnected, refresh } = useRequirements()
   const { activeProjectId } = useApp()
   const projectReqs = requirements.filter((r) => r.projectId === activeProjectId)
+
+  const [listItems, setListItems] = useState<ValidationListEntry[]>([])
+  const [listSource, setListSource] = useState<ValidationListSource | null>(null)
+  const [loadingList, setLoadingList] = useState(true)
 
   const {
     search,
@@ -32,44 +42,63 @@ export function ValidationPage() {
     scoreFilter,
     setScoreFilter,
     filtered,
-  } = useValidationFilters(projectReqs)
+  } = useValidationFilters(listItems)
 
-  const [selectedId, setSelectedId] = useState<string | null>('REQ-001')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [validation, setValidation] = useState<ValidationResponse | null>(null)
-  const [dataSource, setDataSource] = useState<'api' | 'mock' | null>(null)
+  const [detailSource, setDetailSource] = useState<'api' | 'mock' | null>(null)
+  const [traceabilityItems, setTraceabilityItems] = useState([] as import('@/api/types').TraceabilityMatrixItem[])
+  const [traceabilitySource, setTraceabilitySource] = useState<TraceabilitySource | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
 
-  const listItems = filtered.map(({ requirement, estimated, status }) => ({
-    id: requirement.id,
-    title: requirement.title,
-    estimated,
-    status,
-  }))
+  const reloadList = useCallback(async () => {
+    setLoadingList(true)
+    try {
+      const { items, source } = await loadValidationList(
+        activeProjectId,
+        projectReqs,
+        apiConnected,
+      )
+      setListItems(items)
+      setListSource(source)
+      setSelectedId((prev) => {
+        if (prev && items.some((item) => item.requirementId === prev)) return prev
+        return items[0]?.requirementId ?? null
+      })
+    } finally {
+      setLoadingList(false)
+    }
+  }, [activeProjectId, projectReqs, apiConnected])
 
   useEffect(() => {
-    if (filtered.length > 0 && !filtered.some((f) => f.requirement.id === selectedId)) {
-      setSelectedId(filtered[0].requirement.id)
-    }
-  }, [filtered, selectedId])
+    reloadList()
+  }, [reloadList])
 
   useEffect(() => {
     const requirement = projectReqs.find((r) => r.id === selectedId)
     if (!selectedId || !requirement) {
       setValidation(null)
-      setDataSource(null)
+      setDetailSource(null)
+      setTraceabilityItems([])
+      setTraceabilitySource(null)
       return
     }
 
     let cancelled = false
     setLoadingDetail(true)
 
-    loadValidationDetail(requirement, apiConnected)
-      .then(({ data, source }) => {
+    Promise.all([
+      loadValidationDetail(requirement, apiConnected),
+      loadRequirementTraceability(requirement, projectReqs, apiConnected),
+    ])
+      .then(([validationResult, traceabilityResult]) => {
         if (cancelled) return
-        setValidation(data)
-        setDataSource(source)
-        const firstFile = data.detail?.matches[0]?.displayName ?? null
+        setValidation(validationResult.data)
+        setDetailSource(validationResult.source)
+        setTraceabilityItems([traceabilityResult.data])
+        setTraceabilitySource(traceabilityResult.source)
+        const firstFile = validationResult.data.detail?.matches[0]?.displayName ?? null
         setSelectedFile((prev) => prev ?? firstFile)
       })
       .finally(() => {
@@ -86,22 +115,37 @@ export function ValidationPage() {
     setSelectedFile(null)
   }
 
+  const handleRefresh = async () => {
+    await refresh()
+    await reloadList()
+  }
+
   const selectedMatch = validation?.detail?.matches.find((m) => m.displayName === selectedFile)
   const status = validation?.status
     ? asImplementationStatus(validation.status)
     : undefined
   const requirement = validation?.requirement
 
-  const connectionLabel =
-    dataSource === 'api'
-      ? 'API 연결됨'
-      : dataSource === 'mock'
+  const listConnectionLabel =
+    listSource === 'api'
+      ? '목록: API'
+      : listSource === 'fallback_mock'
         ? apiConnected
-          ? 'API 오류 · mock fallback'
-          : '오프라인 · mock 데이터'
-        : apiConnected
-          ? 'API 연결됨'
-          : '오프라인 · mock 데이터'
+          ? '목록: API 오류 · mock fallback'
+          : '목록: 오프라인 · mock fallback'
+        : '목록: 로딩 중'
+
+  const detailConnectionLabel =
+    detailSource === 'api'
+      ? '상세: API'
+      : detailSource === 'mock'
+        ? apiConnected
+          ? '상세: API 오류 · mock fallback'
+          : '상세: 오프라인 · mock fallback'
+        : '상세: —'
+
+  const connectionLabel = `${listConnectionLabel} · ${detailConnectionLabel}`
+  const isApiBacked = listSource === 'api' && detailSource === 'api'
 
   return (
     <PageContainer
@@ -112,13 +156,13 @@ export function ValidationPage() {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => refresh()}
+            onClick={() => void handleRefresh()}
             className="flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-xs text-text-secondary hover:bg-gray-50"
           >
             <RefreshCw className="h-3 w-3" />
             동기화
           </button>
-          <Badge variant={dataSource === 'api' ? 'success' : 'outline'}>{connectionLabel}</Badge>
+          <Badge variant={isApiBacked ? 'success' : 'outline'}>{connectionLabel}</Badge>
           <Badge variant="success">검증 단계</Badge>
         </div>
       }
@@ -131,7 +175,7 @@ export function ValidationPage() {
           <div className="flex-1">
             <SectionHeader
               title="요구사항 ↔ 코드 의미적 검증"
-              description="요구사항 임베딩과 코드 임베딩 코사인 유사도 기반 추정 구현 점수 산출"
+              description="요구사항 임베딩과 코드 임베딩 코사인 유사도 기반 Estimated Implementation Score 산출"
             />
           </div>
           <Badge variant="outline">
@@ -140,14 +184,14 @@ export function ValidationPage() {
           </Badge>
         </div>
         <p className="mt-3 text-[11px] text-text-secondary">
-          * 모든 점수는 추정 구현 점수(AI 추정치)이며, 실제 구현 완료를 보장하지 않습니다. ·{' '}
+          * 모든 점수는 Estimated Implementation Score(AI 추정치)이며, 실제 구현 완료를 보장하지 않습니다. ·{' '}
           {connectionLabel}
         </p>
       </Card>
 
       <div className="grid min-h-0 grid-cols-1 gap-4 lg:min-h-[28rem] lg:grid-cols-[240px_1fr_280px]">
         <ValidationListPanel
-          items={listItems}
+          items={filtered}
           selectedId={selectedId}
           onSelect={handleSelect}
           search={search}
@@ -156,6 +200,7 @@ export function ValidationPage() {
           onStatusFilterChange={setStatusFilter}
           scoreFilter={scoreFilter}
           onScoreFilterChange={setScoreFilter}
+          loading={loadingList}
         />
 
         {loadingDetail ? (
@@ -176,6 +221,7 @@ export function ValidationPage() {
               estimated={validation.estimated}
               similarityAvg={validation.similarityAvg}
               status={status}
+              dataSource={detailSource ?? 'mock'}
             />
           </>
         ) : (
@@ -198,6 +244,8 @@ export function ValidationPage() {
             matches={validation.detail.matches}
             selectedFile={selectedFile}
             onSelectFile={setSelectedFile}
+            traceabilitySource={traceabilitySource ?? 'fallback_mock'}
+            traceabilityItems={traceabilityItems}
           />
         </div>
       )}

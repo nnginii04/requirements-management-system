@@ -9,6 +9,7 @@ import { computeAnalysisSummary, getAllFindings } from '@/utils/analysis'
 export interface AnalysisData {
   findings: AnalysisFinding[]
   summary: AnalysisSummary
+  source: 'api' | 'fallback_mock'
 }
 
 function mockAnalysisData(requirements: Requirement[]): AnalysisData {
@@ -16,6 +17,7 @@ function mockAnalysisData(requirements: Requirement[]): AnalysisData {
   return {
     findings,
     summary: computeAnalysisSummary(requirements),
+    source: 'fallback_mock',
   }
 }
 
@@ -32,7 +34,7 @@ export async function loadAnalysisData(
         fetchAnalysisFindings(projectId),
         fetchAnalysisSummary(projectId),
       ])
-      return { findings, summary }
+      return { findings, summary, source: 'api' }
     } catch {
       // fallback
     }

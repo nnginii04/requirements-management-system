@@ -2,7 +2,9 @@ import { Card } from '@/components/ui/Card'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import { Badge } from '@/components/ui/Badge'
 import type { DashboardStats } from '@/utils/dashboard'
+import { priorityLabels, requirementTypeLabels } from '@/utils/labels'
 
 interface RequirementCoverageListProps {
   stats: DashboardStats
@@ -25,6 +27,16 @@ export function RequirementCoverageList({ stats, limit = 8 }: RequirementCoverag
               <div className="min-w-0">
                 <p className="text-[11px] font-medium text-text-secondary">{item.id}</p>
                 <p className="truncate text-sm font-medium text-text-primary">{item.title}</p>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  <Badge variant="outline" className="text-[10px]">
+                    {item.type === 'functional'
+                      ? requirementTypeLabels.functional
+                      : requirementTypeLabels.non_functional}
+                  </Badge>
+                  <Badge variant="outline" className="text-[10px]">
+                    {priorityLabels[item.priority]}
+                  </Badge>
+                </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <span className="text-sm font-bold text-text-primary">~{item.score}%</span>

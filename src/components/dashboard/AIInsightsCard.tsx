@@ -53,10 +53,15 @@ const findingTypeLabels: Record<string, string> = {
 export function AIInsightsCard({ stats }: AIInsightsCardProps) {
   return (
     <Card className="h-full">
-      <SectionHeader
-        title="AI 인사이트"
-        description="최근 AI 분석 결과 요약"
-      />
+      <div className="flex items-start justify-between gap-3">
+        <SectionHeader
+          title="AI 인사이트"
+          description="최근 AI 분석 결과 요약"
+        />
+        <Badge variant="outline" className="shrink-0">
+          {stats.dataSources.aiInsights}
+        </Badge>
+      </div>
       <div className="mt-4 grid grid-cols-2 gap-3">
         {insightItems(stats).map((item) => (
           <div

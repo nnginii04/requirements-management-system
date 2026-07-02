@@ -41,6 +41,19 @@ export interface IntegrationStatus {
   aiEngine: { connected: boolean; label: string }
 }
 
+export interface TraceabilityRecord {
+  projectId: string
+  requirementId: string
+  requirementTitle: string
+  source: string
+  linkedDocuments: string[]
+  linkedCodeFiles: string[]
+  linkedBuilds: string[]
+  linkedTests: string[]
+  similarityScore: number
+  linkStatus: 'linked' | 'partial' | 'missing'
+}
+
 export interface DbState {
   requirements: Requirement[]
   versions: RequirementVersion[]
@@ -54,6 +67,7 @@ export interface DbState {
   projects: Project[]
   users: User[]
   generatedDocuments: GeneratedDocumentRecord[]
+  traceabilityRecords: TraceabilityRecord[]
   activeProjectId: string
   currentUserId: string
 }
@@ -84,6 +98,7 @@ function normalizeDb(partial: Partial<DbState>): DbState {
     projects: partial.projects ?? empty.projects,
     users: partial.users ?? empty.users,
     generatedDocuments: partial.generatedDocuments ?? empty.generatedDocuments,
+    traceabilityRecords: partial.traceabilityRecords ?? empty.traceabilityRecords,
     activeProjectId: partial.activeProjectId ?? empty.activeProjectId,
     currentUserId: partial.currentUserId ?? empty.currentUserId,
     webhookEvents: partial.webhookEvents ?? empty.webhookEvents,
@@ -117,6 +132,7 @@ export function emptyDb(): DbState {
     projects: [],
     users: [],
     generatedDocuments: [],
+    traceabilityRecords: [],
     activeProjectId: 'proj-001',
     currentUserId: 'user-001',
   }

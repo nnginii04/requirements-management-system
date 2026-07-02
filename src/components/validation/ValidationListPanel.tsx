@@ -2,19 +2,12 @@ import { Search } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { StatusBadge } from '@/components/ui/StatusBadge'
 import { ProgressBar } from '@/components/ui/ProgressBar'
-import type { ImplementationStatus } from '@/types'
 import type { ValidationScoreFilter, ValidationStatusFilter } from '@/hooks/useValidationFilters'
+import type { ValidationListEntry } from '@/utils/validationListApi'
 import { cn } from '@/utils/cn'
 
-interface ValidationListItem {
-  id: string
-  title: string
-  estimated: number
-  status: ImplementationStatus
-}
-
 interface ValidationListPanelProps {
-  items: ValidationListItem[]
+  items: ValidationListEntry[]
   selectedId: string | null
   onSelect: (id: string) => void
   search: string
@@ -23,6 +16,7 @@ interface ValidationListPanelProps {
   onStatusFilterChange: (v: ValidationStatusFilter) => void
   scoreFilter: ValidationScoreFilter
   onScoreFilterChange: (v: ValidationScoreFilter) => void
+  loading?: boolean
 }
 
 const statusFilters: { value: ValidationStatusFilter; label: string }[] = [
@@ -50,6 +44,7 @@ export function ValidationListPanel({
   onStatusFilterChange,
   scoreFilter,
   onScoreFilterChange,
+  loading = false,
 }: ValidationListPanelProps) {
   return (
     <Card padding="none" className="flex h-full flex-col overflow-hidden">
@@ -87,30 +82,45 @@ export function ValidationListPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto scrollbar-thin">
-        {items.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => onSelect(item.id)}
-            className={cn(
-              'w-full border-b border-border px-4 py-3 text-left transition-colors',
-              selectedId === item.id ? 'border-l-2 border-l-primary bg-primary/5' : 'hover:bg-gray-50',
-            )}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-semibold text-text-secondary">{item.id}</span>
-              <StatusBadge status={item.status} />
-            </div>
-            <p className="mt-1 text-sm font-medium text-text-primary">{item.title}</p>
-            <div className="mt-2">
-              <div className="mb-1 flex justify-between text-[10px] text-text-secondary">
-                <span>추정 점수</span>
-                <span className="font-semibold text-primary">~{item.estimated}%</span>
+        {loading ? (
+          <p className="px-4 py-6 text-center text-xs text-text-secondary">목록 로딩 중…</p>
+        ) : items.length === 0 ? (
+          <p className="px-4 py-6 text-center text-xs text-text-secondary">검증 데이터가 없습니다.</p>
+        ) : (
+          items.map((item) => (
+            <button
+              key={item.requirementId}
+              type="button"
+              onClick={() => onSelect(item.requirementId)}
+              className={cn(
+                'w-full border-b border-border px-4 py-3 text-left transition-colors',
+                selectedId === item.requirementId
+                  ? 'border-l-2 border-l-primary bg-primary/5'
+                  : 'hover:bg-gray-50',
+              )}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[11px] font-semibold text-text-secondary">
+                  {item.requirementId}
+                </span>
+                <StatusBadge status={item.status} />
               </div>
-              <ProgressBar value={item.estimated} size="sm" />
-            </div>
-          </button>
-        ))}
+              <p className="mt-1 text-sm font-medium text-text-primary">{item.title}</p>
+              <div className="mt-2">
+                <div className="mb-1 flex justify-between text-[10px] text-text-secondary">
+                  <span>Estimated Implementation Score</span>
+                  <span className="font-semibold text-primary">~{item.estimated}%</span>
+                </div>
+                <ProgressBar value={item.estimated} size="sm" />
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-1 text-[10px] text-text-secondary">
+                <span>유사도 ~{item.similarityAvg.toFixed(2)}</span>
+                <span>매칭 {item.matchedFilesCount}</span>
+                <span>누락 {item.missingLogicCount}</span>
+              </div>
+            </button>
+          ))
+        )}
       </div>
     </Card>
   )

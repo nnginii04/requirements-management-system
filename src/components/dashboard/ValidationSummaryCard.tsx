@@ -7,16 +7,25 @@ import type { ValidationSummary } from '@/utils/dashboard'
 
 interface ValidationSummaryCardProps {
   validation: ValidationSummary | null
+  dataSource?: 'api' | 'fallback_mock'
 }
 
-export function ValidationSummaryCard({ validation }: ValidationSummaryCardProps) {
+export function ValidationSummaryCard({
+  validation,
+  dataSource = 'fallback_mock',
+}: ValidationSummaryCardProps) {
   if (!validation) {
     return (
       <Card className="h-full">
-        <SectionHeader
-          title="요구사항-코드 검증 요약"
-          description="가장 최근 코드 연관도 검증 결과"
-        />
+        <div className="flex items-start justify-between gap-3">
+          <SectionHeader
+            title="요구사항-코드 검증 요약"
+            description="가장 최근 코드 연관도 검증 결과"
+          />
+          <Badge variant="outline" className="shrink-0">
+            {dataSource === 'fallback_mock' ? 'mock fallback' : dataSource}
+          </Badge>
+        </div>
         <p className="mt-6 text-sm text-text-secondary">검증 데이터가 없습니다.</p>
       </Card>
     )
@@ -31,7 +40,7 @@ export function ValidationSummaryCard({ validation }: ValidationSummaryCardProps
         />
         <Badge variant="outline" className="shrink-0">
           <GitBranch className="mr-1 h-3 w-3" />
-          최신
+          {dataSource === 'fallback_mock' ? 'mock fallback' : dataSource}
         </Badge>
       </div>
 

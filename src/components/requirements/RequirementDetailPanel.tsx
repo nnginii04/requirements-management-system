@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Copy,
   Trash2,
@@ -14,16 +14,19 @@ import { StatusBadge, WorkflowStatusBadge } from '@/components/ui/StatusBadge'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import { RequirementVersionCompare } from './RequirementVersionCompare'
 import type { Requirement, RequirementVersion, RequirementWorkflowStatus } from '@/types'
+import type { TraceabilityMatrixItem } from '@/api/types'
 import { getUserById, getBaselinesByProjectId, hasReviewIssue } from '@/mocks'
 import { getRequirementStatusByScore } from '@/utils/requirement'
 import { workflowStatusLabels, requirementTypeLabels, priorityLabels } from '@/utils/labels'
 import { getBaselineLabel, resolveTraceability } from '@/utils/traceability'
+import { loadRequirementTraceability, type TraceabilitySource } from '@/utils/traceabilityApi'
 import { getPriorityColor } from '@/utils/colors'
 import { cn } from '@/utils/cn'
 
 interface RequirementDetailPanelProps {
   requirement: Requirement | null
   allRequirements: Requirement[]
+  apiConnected: boolean
   versions: RequirementVersion[]
   onUpdateStatus: (status: RequirementWorkflowStatus) => void
   onAssignBaseline: (baselineId: string | null) => void
@@ -35,6 +38,7 @@ interface RequirementDetailPanelProps {
 export function RequirementDetailPanel({
   requirement,
   allRequirements,
+  apiConnected,
   versions,
   onUpdateStatus,
   onAssignBaseline,
@@ -47,6 +51,28 @@ export function RequirementDetailPanel({
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const [editDescription, setEditDescription] = useState('')
+  const [traceability, setTraceability] = useState<TraceabilityMatrixItem | null>(null)
+  const [traceabilitySource, setTraceabilitySource] = useState<TraceabilitySource | null>(null)
+
+  useEffect(() => {
+    if (!requirement) {
+      setTraceability(null)
+      setTraceabilitySource(null)
+      return
+    }
+
+    let cancelled = false
+
+    loadRequirementTraceability(requirement, allRequirements, apiConnected).then((result) => {
+      if (cancelled) return
+      setTraceability(result.data)
+      setTraceabilitySource(result.source)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [requirement, allRequirements, apiConnected])
 
   if (!requirement) {
     return (
@@ -61,10 +87,22 @@ export function RequirementDetailPanel({
     requirement.implementationScore,
     hasReviewIssue(requirement.id),
   )
-  const trace = resolveTraceability(requirement, allRequirements)
+  const fallbackTrace = resolveTraceability(requirement, allRequirements)
   const baselines = getBaselinesByProjectId(requirement.projectId)
   const priorityColor = getPriorityColor(requirement.priority)
   const reqVersions = versions
+
+  const trace = traceability ?? {
+    requirementId: requirement.id,
+    requirementTitle: requirement.title,
+    source: requirement.source ?? fallbackTrace.source ?? 'Manual Input',
+    linkedDocuments: fallbackTrace.documents.map((d) => d.title),
+    linkedCodeFiles: fallbackTrace.codeFiles.map((c) => c.name),
+    linkedBuilds: fallbackTrace.builds.map((b) => b.label),
+    linkedTests: fallbackTrace.tests.map((t) => t.label),
+    similarityScore: 0,
+    linkStatus: 'missing' as const,
+  }
 
   const startEdit = () => {
     setEditTitle(requirement.title)
@@ -185,25 +223,32 @@ export function RequirementDetailPanel({
         </div>
 
         <div className="mt-5">
-          <SectionHeader title="추적성" />
+          <div className="flex items-start justify-between gap-3">
+            <SectionHeader title="추적성" />
+            <Badge variant="outline" className="shrink-0 text-[10px]">
+              {traceabilitySource === 'api' ? 'traceability API 기반' : 'mock fallback'}
+            </Badge>
+          </div>
           <dl className="mt-3 space-y-2 text-sm">
-            <TraceRow label="출처" value={trace.source} />
+            <TraceRow label="출처" value={trace.source || fallbackTrace.source || 'Manual Input'} />
             <TraceRow
               label="연결 문서"
-              value={trace.documents.map((d) => d.title).join(', ') || '—'}
+              value={trace.linkedDocuments.join(', ') || '—'}
             />
             <TraceRow
               label="연결 코드"
-              value={trace.codeFiles.map((c) => c.name).join(', ') || '—'}
+              value={trace.linkedCodeFiles.join(', ') || '—'}
             />
             <TraceRow
               label="연결 빌드"
-              value={trace.builds.map((b) => b.label).join(', ') || '—'}
+              value={trace.linkedBuilds.join(', ') || '—'}
             />
             <TraceRow
               label="연결 테스트"
-              value={trace.tests.map((t) => t.label).join(', ') || '—'}
+              value={trace.linkedTests.join(', ') || '—'}
             />
+            <TraceRow label="유사도" value={trace.similarityScore.toFixed(2)} />
+            <TraceStatusRow status={trace.linkStatus} />
           </dl>
         </div>
 
@@ -242,14 +287,14 @@ export function RequirementDetailPanel({
           </div>
         )}
 
-        {trace.documents.length > 0 && (
+        {trace.linkedDocuments.length > 0 && (
           <div className="mt-5">
             <SectionHeader title="관련 문서" />
             <div className="mt-2 space-y-1">
-              {trace.documents.map((d) => (
-                <div key={d.id} className="flex items-center gap-2 text-sm text-text-secondary">
+              {trace.linkedDocuments.map((title) => (
+                <div key={title} className="flex items-center gap-2 text-sm text-text-secondary">
                   <Target className="h-3 w-3" />
-                  {d.title}
+                  {title}
                 </div>
               ))}
             </div>
@@ -274,6 +319,23 @@ function TraceRow({ label, value }: { label: string; value: string }) {
     <div className="flex gap-2">
       <dt className="w-28 shrink-0 text-text-secondary">{label}</dt>
       <dd className="text-text-primary">{value}</dd>
+    </div>
+  )
+}
+
+function TraceStatusRow({ status }: { status: TraceabilityMatrixItem['linkStatus'] }) {
+  return (
+    <div className="flex gap-2">
+      <dt className="w-28 shrink-0 text-text-secondary">상태</dt>
+      <dd>
+        <Badge
+          variant={
+            status === 'linked' ? 'success' : status === 'partial' ? 'warning' : 'outline'
+          }
+        >
+          {status === 'linked' ? '연결됨' : status === 'partial' ? '부분 연결' : '미연결'}
+        </Badge>
+      </dd>
     </div>
   )
 }

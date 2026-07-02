@@ -9,6 +9,7 @@ import {
 } from 'recharts'
 import { Card } from '@/components/ui/Card'
 import { SectionHeader } from '@/components/ui/SectionHeader'
+import { Badge } from '@/components/ui/Badge'
 import type { DashboardStats } from '@/utils/dashboard'
 
 interface BuildTimelineChartProps {
@@ -20,10 +21,15 @@ export function BuildTimelineChart({ stats }: BuildTimelineChartProps) {
 
   return (
     <Card className="h-full">
-      <SectionHeader
-        title="빌드 진척 타임라인"
-        description="Jenkins 빌드 기반 시점별 추정 진척률"
-      />
+      <div className="flex items-start justify-between gap-3">
+        <SectionHeader
+          title="빌드 진척 타임라인"
+          description="Jenkins 빌드 기반 시점별 추정 진척률"
+        />
+        <Badge variant="outline" className="shrink-0">
+          {stats.dataSources.builds}
+        </Badge>
+      </div>
       <div className="mt-4 h-56">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>

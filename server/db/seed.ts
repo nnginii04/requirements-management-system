@@ -65,6 +65,53 @@ async function loadMockModules() {
   }
 }
 
+
+function buildTraceabilityRecords(data: Awaited<ReturnType<typeof loadMockModules>>) {
+  return data.requirements.map((requirement) => {
+    const detail = data.validationDetails.find((d) => d.requirementId === requirement.id)
+    const linkedDocuments = data.documents
+      .filter((doc) => doc.projectId === requirement.projectId && doc.sourceRequirements.includes(requirement.id))
+      .map((doc) => doc.title)
+
+    const linkedCodeFiles = detail
+      ? [...new Set(detail.matches.filter((m) => m.score >= 0.4).map((m) => m.displayName))]
+      : []
+    const linkedBuilds = detail
+      ? [...new Set(detail.matches.map((m) => `Build #${m.buildNumber}`))]
+      : []
+    const linkedTests = detail
+      ? [...new Set(detail.matches.map((m) => m.testCase).filter(Boolean) as string[])]
+      : []
+
+    for (const link of requirement.traceabilityLinks) {
+      if (link.targetType === 'test' && !linkedTests.includes(link.targetId)) {
+        linkedTests.push(link.targetId)
+      }
+      if (link.targetType === 'code' && !linkedCodeFiles.includes(link.targetId)) {
+        linkedCodeFiles.push(link.targetId)
+      }
+    }
+
+    const scores = detail?.matches.map((m) => m.score) ?? []
+    const similarityScore =
+      scores.length > 0 ? Math.round((scores.reduce((sum, score) => sum + score, 0) / scores.length) * 100) / 100 : 0
+    const linkStatus = similarityScore >= 0.85 ? 'linked' : similarityScore >= 0.4 ? 'partial' : 'missing'
+
+    return {
+      projectId: requirement.projectId,
+      requirementId: requirement.id,
+      requirementTitle: requirement.title,
+      source: requirement.source ?? 'Manual Input',
+      linkedDocuments,
+      linkedCodeFiles,
+      linkedBuilds,
+      linkedTests,
+      similarityScore,
+      linkStatus,
+    }
+  })
+}
+
 function applyMockData(state: DbState, data: Awaited<ReturnType<typeof loadMockModules>>): void {
   state.requirements = data.requirements
   state.versions = data.versions
@@ -77,6 +124,7 @@ function applyMockData(state: DbState, data: Awaited<ReturnType<typeof loadMockM
   state.projects = data.projects
   state.users = data.users
   state.generatedDocuments = []
+  state.traceabilityRecords = buildTraceabilityRecords(data)
   state.activeProjectId = data.projects[0]?.id ?? 'proj-001'
   state.currentUserId = data.users[0]?.id ?? 'user-001'
 }
@@ -134,6 +182,10 @@ export async function seedIfEmpty(): Promise<void> {
   }
   if (!state.generatedDocuments) {
     state.generatedDocuments = []
+    changed = true
+  }
+  if (!state.traceabilityRecords?.length) {
+    state.traceabilityRecords = buildTraceabilityRecords(data)
     changed = true
   }
 

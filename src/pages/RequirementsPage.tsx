@@ -21,6 +21,7 @@ export function RequirementsPage() {
     deleteRequirement,
     duplicateRequirement,
     getVersionsFor,
+    apiConnected,
   } = useRequirements()
   const { activeProjectId } = useApp()
 
@@ -63,6 +64,7 @@ export function RequirementsPage() {
         <RequirementDetailPanel
           requirement={selected}
           allRequirements={projectRequirements}
+          apiConnected={apiConnected}
           versions={selected ? getVersionsFor(selected.id) : []}
           onUpdateStatus={(status) => selected && updateStatus(selected.id, status)}
           onAssignBaseline={(baselineId) => selected && assignBaseline(selected.id, baselineId)}

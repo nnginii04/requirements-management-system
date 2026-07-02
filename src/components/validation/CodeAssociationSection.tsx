@@ -3,17 +3,21 @@ import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { SectionHeader } from '@/components/ui/SectionHeader'
 import type { Requirement } from '@/types'
+import type { TraceabilityMatrixItem } from '@/api/types'
 import type { CodeMatchDetail } from '@/utils/validation'
 import { getConnectionColor } from '@/utils/validation'
 import { cn } from '@/utils/cn'
 
 type AssociationTab = 'graph' | 'tree' | 'matrix' | 'file'
+type TraceabilitySource = 'api' | 'fallback_mock'
 
 interface CodeAssociationSectionProps {
   requirement: Requirement
   matches: CodeMatchDetail[]
   selectedFile: string | null
   onSelectFile: (name: string) => void
+  traceabilitySource?: TraceabilitySource
+  traceabilityItems?: TraceabilityMatrixItem[]
 }
 
 export function CodeAssociationSection({
@@ -21,6 +25,8 @@ export function CodeAssociationSection({
   matches,
   selectedFile,
   onSelectFile,
+  traceabilitySource = 'fallback_mock',
+  traceabilityItems = [],
 }: CodeAssociationSectionProps) {
   const [tab, setTab] = useState<AssociationTab>('matrix')
   const visible = matches.filter((m) => m.score >= 0.4)
@@ -68,7 +74,16 @@ export function CodeAssociationSection({
               onSelectFile={onSelectFile}
             />
           )}
-          {tab === 'matrix' && <TraceabilityMatrix requirement={requirement} matches={visible} />}
+          {tab === 'matrix' && (
+            <div>
+              <Badge variant="outline" className="mb-3 text-[10px]">
+                {traceabilitySource === 'api'
+                  ? 'traceability API 기반'
+                  : 'mock fallback · Traceability Matrix API 없음'}
+              </Badge>
+              <TraceabilityMatrix requirement={requirement} matches={visible} items={traceabilityItems} />
+            </div>
+          )}
           {tab === 'file' && selected && <FileDetailPanel match={selected} />}
         </div>
         {tab !== 'file' && selected && (
@@ -152,34 +167,53 @@ function TreeView({
 function TraceabilityMatrix({
   requirement,
   matches,
+  items,
 }: {
   requirement: Requirement
   matches: CodeMatchDetail[]
+  items: TraceabilityMatrixItem[]
 }) {
+  const fallbackRow = {
+    requirementId: requirement.id,
+    requirementTitle: requirement.title,
+    linkedDocuments: [],
+    linkedCodeFiles: matches.map((m) => m.displayName),
+    linkedBuilds: matches.map((m) => `Build #${m.buildNumber}`),
+    linkedTests: matches.map((m) => m.testCase).filter(Boolean) as string[],
+    similarityScore:
+      matches.length > 0
+        ? Math.round((matches.reduce((sum, match) => sum + match.score, 0) / matches.length) * 100) / 100
+        : 0,
+    linkStatus: matches.some((m) => m.status === 'linked') ? 'linked' : matches.length > 0 ? 'partial' : 'missing',
+  }
+  const rows = items.length > 0 ? items : [fallbackRow]
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-xs">
         <thead>
           <tr className="border-b border-border text-[10px] uppercase text-text-secondary">
-            <th className="px-3 py-2">요구사항</th>
-            <th className="px-3 py-2">코드 파일</th>
-            <th className="px-3 py-2">유사도</th>
-            <th className="px-3 py-2">빌드</th>
-            <th className="px-3 py-2">테스트</th>
-            <th className="px-3 py-2">상태</th>
+            <th className="px-3 py-2">Requirement</th>
+            <th className="px-3 py-2">Document</th>
+            <th className="px-3 py-2">Code File</th>
+            <th className="px-3 py-2">Test Case</th>
+            <th className="px-3 py-2">Build</th>
+            <th className="px-3 py-2">Similarity</th>
+            <th className="px-3 py-2">Status</th>
           </tr>
         </thead>
         <tbody>
-          {matches.map((m) => (
-            <tr key={m.displayName} className="border-b border-border hover:bg-gray-50">
-              <td className="px-3 py-2 font-medium">{requirement.id}</td>
-              <td className="px-3 py-2 font-mono">{m.displayName}</td>
-              <td className="px-3 py-2 font-semibold text-primary">{m.score.toFixed(2)}</td>
-              <td className="px-3 py-2">#{m.buildNumber}</td>
-              <td className="px-3 py-2 text-text-secondary">{m.testCase ?? '—'}</td>
+          {rows.map((row) => (
+            <tr key={row.requirementId} className="border-b border-border hover:bg-gray-50">
+              <td className="px-3 py-2 font-medium">{row.requirementId}</td>
+              <td className="px-3 py-2 text-text-secondary">{row.linkedDocuments.join(', ') || '—'}</td>
+              <td className="px-3 py-2 font-mono">{row.linkedCodeFiles.join(', ') || '—'}</td>
+              <td className="px-3 py-2 text-text-secondary">{row.linkedTests.join(', ') || '—'}</td>
+              <td className="px-3 py-2">{row.linkedBuilds.join(', ') || '—'}</td>
+              <td className="px-3 py-2 font-semibold text-primary">{row.similarityScore.toFixed(2)}</td>
               <td className="px-3 py-2">
-                <Badge variant={m.status === 'linked' ? 'success' : 'warning'}>
-                  {m.status === 'linked' ? '연결됨' : '부분'}
+                <Badge variant={row.linkStatus === 'linked' ? 'success' : row.linkStatus === 'partial' ? 'warning' : 'outline'}>
+                  {row.linkStatus === 'linked' ? '연결됨' : row.linkStatus === 'partial' ? '부분' : '미연결'}
                 </Badge>
               </td>
             </tr>

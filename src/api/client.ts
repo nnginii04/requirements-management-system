@@ -17,7 +17,9 @@ import type {
   AnalysisFinding,
   AnalysisSummary,
   DocumentQualityCheck,
+  DashboardAggregateResponse,
   GeneratedDocumentRecord,
+  TraceabilityMatrixItem,
 } from '@/api/types'
 
 const BASE = '/api'
@@ -122,6 +124,18 @@ export function fetchAllVersions(): Promise<RequirementVersion[]> {
 
 export function fetchValidationList(projectId: string): Promise<ValidationListItem[]> {
   return request<ValidationListItem[]>(`/validation?projectId=${encodeURIComponent(projectId)}`)
+}
+
+export function fetchProjectTraceabilityMatrix(projectId: string): Promise<TraceabilityMatrixItem[]> {
+  return request<TraceabilityMatrixItem[]>(`/traceability/projects/${projectId}/matrix`)
+}
+
+export function fetchRequirementTraceability(requirementId: string): Promise<TraceabilityMatrixItem> {
+  return request<TraceabilityMatrixItem>(`/traceability/requirements/${requirementId}`)
+}
+
+export function fetchDashboardSummary(projectId: string): Promise<DashboardAggregateResponse> {
+  return request<DashboardAggregateResponse>(`/dashboard/projects/${projectId}`)
 }
 
 export function fetchProjects(): Promise<ProjectView[]> {
