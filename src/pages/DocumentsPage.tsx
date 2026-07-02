@@ -85,7 +85,7 @@ export function DocumentsPage() {
       workflow={workflow}
       action={<Badge variant="primary">명세화 단계</Badge>}
     >
-      <div className="grid min-h-0 grid-cols-1 gap-4 lg:h-[calc(100vh-17rem)] lg:grid-cols-[260px_1fr_260px]">
+      <div className="grid grid-cols-1 gap-4 lg:min-h-[calc(100dvh-15rem)] lg:grid-cols-[260px_1fr_260px]">
         <DocumentSidebar
           activeTab={activeTab}
           onTabChange={(tab) => {

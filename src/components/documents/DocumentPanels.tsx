@@ -53,8 +53,8 @@ export function DocumentSidebar({
   generating,
 }: DocumentSidebarProps) {
   return (
-    <Card padding="none" className="flex h-full flex-col overflow-hidden">
-      <div className="border-b border-border p-4">
+    <Card padding="none" className="flex h-full min-h-[24rem] flex-col overflow-hidden">
+      <div className="shrink-0 border-b border-border p-4">
         <SectionHeader title="문서 생성" description="종류 · 요구사항 · 옵션" />
         <div className="mt-3 flex gap-1">
           {tabs.map((tab) => (
@@ -75,11 +75,11 @@ export function DocumentSidebar({
         </div>
       </div>
 
-      <div className="border-b border-border p-4">
+      <div className="min-h-0 flex-1 overflow-y-auto border-b border-border p-4 scrollbar-thin">
         <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-text-secondary">
           포함할 요구사항 ({selectedReqIds.size})
         </p>
-        <div className="max-h-48 space-y-1 overflow-y-auto scrollbar-thin">
+        <div className="space-y-1">
           {requirements.map((req) => (
             <label
               key={req.id}
@@ -98,7 +98,7 @@ export function DocumentSidebar({
         </div>
       </div>
 
-      <div className="border-b border-border p-4 space-y-2">
+      <div className="shrink-0 border-b border-border p-4 space-y-2">
         <p className="text-[10px] font-medium uppercase tracking-wider text-text-secondary">생성 옵션</p>
         <label className="flex items-center gap-2 text-xs text-text-secondary">
           <input
@@ -118,7 +118,7 @@ export function DocumentSidebar({
         </label>
       </div>
 
-      <div className="mt-auto p-4">
+      <div className="shrink-0 p-4">
         <button
           type="button"
           className="btn-primary w-full"
@@ -156,7 +156,7 @@ export function DocumentPreview({
 }: DocumentPreviewProps) {
   if (!document) {
     return (
-      <Card className="flex h-full min-h-[500px] items-center justify-center">
+      <Card className="flex h-full min-h-[24rem] items-center justify-center">
         <div className="text-center">
           <Sparkles className="mx-auto h-10 w-10 text-text-secondary/30" />
           <p className="mt-3 text-sm text-text-secondary">
@@ -168,7 +168,7 @@ export function DocumentPreview({
   }
 
   return (
-    <Card padding="none" className="flex h-full flex-col overflow-hidden">
+    <Card padding="none" className="flex h-full min-h-[24rem] flex-col overflow-hidden">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div>
           <p className="text-sm font-semibold text-text-primary">{document.title}</p>
@@ -230,7 +230,7 @@ export function DocumentQualityPanel({ document, activeTab }: DocumentQualityPan
   const quality = runQualityCheck(document, activeTab)
 
   return (
-    <Card padding="none" className="flex h-full flex-col overflow-hidden">
+    <Card padding="none" className="flex h-full min-h-[24rem] flex-col overflow-hidden">
       <div className="border-b border-border p-4">
         <SectionHeader title="AI 문서 품질 점검" />
       </div>

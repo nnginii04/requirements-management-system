@@ -3,10 +3,10 @@ import type { User } from '@/types'
 export const users: User[] = [
   {
     id: 'user-001',
-    name: '김지현',
-    email: 'jihyun.kim@company.com',
+    name: '정예진',
+    email: 'yejin.jung@company.com',
     role: '요구사항 엔지니어',
-    avatarInitials: '김',
+    avatarInitials: '정',
   },
   {
     id: 'user-002',

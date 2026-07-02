@@ -8,7 +8,7 @@ export function TopHeader() {
 
   return (
     <header className="shrink-0 border-b border-border bg-card">
-      <div className="flex h-16 items-center justify-between gap-4 px-4 sm:px-6">
+      <div className="flex h-14 items-center justify-between gap-4 px-4 sm:px-6">
         <div className="min-w-0">
           <p className="text-[10px] font-medium uppercase tracking-wider text-text-secondary">
             요구사항 엔지니어링 플랫폼

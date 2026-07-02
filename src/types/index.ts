@@ -22,6 +22,7 @@ export type {
   CodeFile,
   SimilarityScore,
   BuildHistory,
+  RequirementBuildSnapshot,
   Document,
   NavItem,
 } from './domain'

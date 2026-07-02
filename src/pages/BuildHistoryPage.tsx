@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { SectionHeader } from '@/components/ui/SectionHeader'
-import { Hammer } from 'lucide-react'
+import { Hammer, Play, RefreshCw } from 'lucide-react'
 import {
   BuildSummaryCards,
   BuildTimelineChart,
@@ -14,7 +14,10 @@ import {
 } from '@/components/build'
 import { useRequirements } from '@/contexts/RequirementsContext'
 import { useWorkflow } from '@/hooks/useWorkflow'
-import { getBuildHistoriesByProjectId, currentProjectId } from '@/mocks'
+import { currentProjectId } from '@/mocks'
+import { fetchBuilds, simulateBuild } from '@/api/client'
+import type { BuildHistory } from '@/types'
+import { getBuildHistoriesByProjectId } from '@/mocks'
 import {
   computeBuildSummary,
   enrichBuildsWithChange,
@@ -25,9 +28,20 @@ import {
 
 export function BuildHistoryPage() {
   const workflow = useWorkflow()
-  const { requirements } = useRequirements()
+  const { requirements, apiConnected, refresh } = useRequirements()
   const projectReqs = requirements.filter((r) => r.projectId === currentProjectId)
-  const allBuilds = getBuildHistoriesByProjectId(currentProjectId)
+
+  const [allBuilds, setAllBuilds] = useState<BuildHistory[]>(() =>
+    getBuildHistoriesByProjectId(currentProjectId),
+  )
+  const [simulating, setSimulating] = useState(false)
+
+  useEffect(() => {
+    if (!apiConnected) return
+    fetchBuilds()
+      .then((builds) => setAllBuilds(builds.filter((b) => b.projectId === currentProjectId)))
+      .catch(() => {})
+  }, [apiConnected, requirements])
 
   const [selectedBuildNumber, setSelectedBuildNumber] = useState<number | null>(
     allBuilds[0]?.buildNumber ?? null,
@@ -36,6 +50,12 @@ export function BuildHistoryPage() {
   const [dateTo, setDateTo] = useState('')
   const [buildFilter, setBuildFilter] = useState<number | 'all'>('all')
   const [selectedReqId, setSelectedReqId] = useState('REQ-001')
+
+  useEffect(() => {
+    if (allBuilds.length > 0 && !allBuilds.some((b) => b.buildNumber === selectedBuildNumber)) {
+      setSelectedBuildNumber(allBuilds[0].buildNumber)
+    }
+  }, [allBuilds, selectedBuildNumber])
 
   const filteredBuilds = useMemo(() => {
     let builds = filterBuildsByDateRange(allBuilds, dateFrom || undefined, dateTo || undefined)
@@ -54,6 +74,24 @@ export function BuildHistoryPage() {
   const selectedBuild = filteredBuilds.find((b) => b.buildNumber === selectedBuildNumber) ?? null
   const selectedReq = projectReqs.find((r) => r.id === selectedReqId)
 
+  const handleSimulateBuild = async () => {
+    if (!apiConnected) return
+    setSimulating(true)
+    try {
+      const result = await simulateBuild({
+        commitMessage: 'feat: REQ-001 auth token refresh',
+        changedFiles: ['src/auth/AuthController.java', 'src/auth/JwtProvider.java'],
+        status: 'success',
+      })
+      const builds = await fetchBuilds()
+      setAllBuilds(builds.filter((b) => b.projectId === currentProjectId))
+      setSelectedBuildNumber(result.buildNumber)
+      await refresh()
+    } finally {
+      setSimulating(false)
+    }
+  }
+
   if (!summary) {
     return (
       <PageContainer title={workflow.title} description={workflow.subtitle} workflow={workflow}>
@@ -67,7 +105,26 @@ export function BuildHistoryPage() {
       title={workflow.title}
       description={workflow.subtitle}
       workflow={workflow}
-      action={<Badge variant="outline">추적 단계</Badge>}
+      action={
+        <div className="flex items-center gap-2">
+          {apiConnected && (
+            <button
+              type="button"
+              disabled={simulating}
+              onClick={handleSimulateBuild}
+              className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary/90 disabled:opacity-50"
+            >
+              {simulating ? (
+                <RefreshCw className="h-3 w-3 animate-spin" />
+              ) : (
+                <Play className="h-3 w-3" />
+              )}
+              빌드 시뮬레이션
+            </button>
+          )}
+          <Badge variant="outline">추적 단계</Badge>
+        </div>
+      }
     >
       <Card className="mb-5" padding="lg">
         <div className="flex items-center gap-3">
@@ -81,6 +138,7 @@ export function BuildHistoryPage() {
         </div>
         <p className="mt-3 text-[11px] text-text-secondary">
           진척 변화 = 현재 빌드 추정 진척률 − 이전 빌드 추정 진척률 · 예: 빌드 #148 (~79%) → #149 (~84%) = +5%
+          {apiConnected ? ' · Webhook/API 연동 활성' : ''}
         </p>
       </Card>
 
@@ -151,6 +209,7 @@ export function BuildHistoryPage() {
           <RequirementProgressTimeline
             requirementId={selectedReq.id}
             requirementTitle={selectedReq.title}
+            apiConnected={apiConnected}
           />
         )}
       </div>

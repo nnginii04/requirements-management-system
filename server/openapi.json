@@ -1,0 +1,58 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "ReqFlow API",
+    "version": "1.0.0",
+    "description": "Requirements engineering platform REST API (Phase A PoC)"
+  },
+  "servers": [{ "url": "http://localhost:3001/api" }],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/requirements": {
+      "get": { "summary": "List requirements", "responses": { "200": { "description": "Requirement list" } } },
+      "post": { "summary": "Create requirement", "responses": { "201": { "description": "Created" } } }
+    },
+    "/requirements/{id}": {
+      "get": { "summary": "Get requirement", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "OK" } } },
+      "patch": { "summary": "Update requirement", "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }], "responses": { "200": { "description": "Updated" } } }
+    },
+    "/requirements/{id}/impact": {
+      "get": {
+        "summary": "Change impact analysis",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Impact scope" } }
+      }
+    },
+    "/validation/{requirementId}": {
+      "get": {
+        "summary": "Validation detail with code snippets",
+        "parameters": [{ "name": "requirementId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "Validation payload" } }
+      }
+    },
+    "/builds": {
+      "get": { "summary": "List builds", "responses": { "200": { "description": "Build history" } } }
+    },
+    "/builds/{buildNumber}/snapshots": {
+      "get": {
+        "summary": "Snapshots for a build",
+        "parameters": [{ "name": "buildNumber", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": { "200": { "description": "Snapshots" } }
+      }
+    },
+    "/builds/simulate": {
+      "post": { "summary": "Simulate Jenkins build (local dev)", "responses": { "201": { "description": "Build processed" } } }
+    },
+    "/webhooks/github": {
+      "post": { "summary": "GitHub push webhook", "responses": { "201": { "description": "Build triggered" } } }
+    },
+    "/webhooks/jenkins": {
+      "post": { "summary": "Jenkins build webhook", "responses": { "201": { "description": "Build processed" } } }
+    }
+  }
+}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { GitBranch, Sparkles } from 'lucide-react'
+import { GitBranch, Sparkles, RefreshCw } from 'lucide-react'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -9,15 +9,18 @@ import {
   RelationshipGraph,
   ValidationDetailPanel,
   CodeAssociationSection,
+  CodeSnippetPanel,
 } from '@/components/validation'
 import { useRequirements } from '@/contexts/RequirementsContext'
 import { useWorkflow } from '@/hooks/useWorkflow'
-import { currentProjectId, getValidationDetail } from '@/mocks'
-import { useValidationFilters, getSelectedValidation } from '@/hooks/useValidationFilters'
+import { currentProjectId } from '@/mocks'
+import { useValidationFilters } from '@/hooks/useValidationFilters'
+import { fetchValidation, type ValidationResponse } from '@/api/client'
+import type { ImplementationStatus } from '@/types'
 
 export function ValidationPage() {
   const workflow = useWorkflow()
-  const { requirements } = useRequirements()
+  const { requirements, apiConnected, refresh } = useRequirements()
   const projectReqs = requirements.filter((r) => r.projectId === currentProjectId)
 
   const {
@@ -31,9 +34,10 @@ export function ValidationPage() {
   } = useValidationFilters(projectReqs)
 
   const [selectedId, setSelectedId] = useState<string | null>('REQ-001')
-  const [selectedFile, setSelectedFile] = useState<string | null>('AuthController.java')
+  const [selectedFile, setSelectedFile] = useState<string | null>(null)
+  const [validation, setValidation] = useState<ValidationResponse | null>(null)
+  const [loadingDetail, setLoadingDetail] = useState(false)
 
-  const selected = getSelectedValidation(selectedId, projectReqs)
   const listItems = filtered.map(({ requirement, estimated, status }) => ({
     id: requirement.id,
     title: requirement.title,
@@ -43,25 +47,65 @@ export function ValidationPage() {
 
   useEffect(() => {
     if (filtered.length > 0 && !filtered.some((f) => f.requirement.id === selectedId)) {
-      const first = filtered[0].requirement.id
-      setSelectedId(first)
-      const detail = getValidationDetail(first)
-      setSelectedFile(detail?.matches[0]?.displayName ?? null)
+      setSelectedId(filtered[0].requirement.id)
     }
   }, [filtered, selectedId])
 
+  useEffect(() => {
+    if (!selectedId) {
+      setValidation(null)
+      return
+    }
+    let cancelled = false
+    setLoadingDetail(true)
+    fetchValidation(selectedId)
+      .then((data) => {
+        if (!cancelled) {
+          setValidation(data)
+          const firstFile = data.detail?.matches[0]?.displayName ?? null
+          setSelectedFile((prev) => prev ?? firstFile)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setValidation(null)
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingDetail(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedId, requirements])
+
   const handleSelect = (id: string) => {
     setSelectedId(id)
-    const detail = getValidationDetail(id)
-    setSelectedFile(detail?.matches[0]?.displayName ?? null)
+    setSelectedFile(null)
   }
+
+  const selectedMatch = validation?.detail?.matches.find((m) => m.displayName === selectedFile)
+  const status = validation?.status as ImplementationStatus | undefined
+  const requirement = validation?.requirement
 
   return (
     <PageContainer
       title={workflow.title}
       description={workflow.subtitle}
       workflow={workflow}
-      action={<Badge variant="success">검증 단계</Badge>}
+      action={
+        <div className="flex items-center gap-2">
+          {apiConnected && (
+            <button
+              type="button"
+              onClick={() => refresh()}
+              className="flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-xs text-text-secondary hover:bg-gray-50"
+            >
+              <RefreshCw className="h-3 w-3" />
+              동기화
+            </button>
+          )}
+          <Badge variant="success">검증 단계</Badge>
+        </div>
+      }
     >
       <Card className="mb-5" padding="lg">
         <div className="flex items-center gap-3">
@@ -81,10 +125,11 @@ export function ValidationPage() {
         </div>
         <p className="mt-3 text-[11px] text-text-secondary">
           * 모든 점수는 추정 구현 점수(AI 추정치)이며, 실제 구현 완료를 보장하지 않습니다.
+          {apiConnected ? ' · API 연결됨' : ' · 오프라인(목 데이터)'}
         </p>
       </Card>
 
-      <div className="grid min-h-0 grid-cols-1 gap-4 lg:h-[calc(100vh-20rem)] lg:grid-cols-[240px_1fr_280px]">
+      <div className="grid min-h-0 grid-cols-1 gap-4 lg:min-h-[28rem] lg:grid-cols-[240px_1fr_280px]">
         <ValidationListPanel
           items={listItems}
           selectedId={selectedId}
@@ -97,20 +142,24 @@ export function ValidationPage() {
           onScoreFilterChange={setScoreFilter}
         />
 
-        {selected ? (
+        {loadingDetail ? (
+          <Card className="flex items-center justify-center lg:col-span-2">
+            <p className="text-sm text-text-secondary">검증 데이터 로딩 중…</p>
+          </Card>
+        ) : validation?.detail && requirement && status ? (
           <>
             <RelationshipGraph
-              requirement={selected.requirement}
-              matches={selected.detail.matches}
+              requirement={requirement}
+              matches={validation.detail.matches}
               selectedFile={selectedFile}
               onSelectFile={setSelectedFile}
             />
             <ValidationDetailPanel
-              requirement={selected.requirement}
-              detail={selected.detail}
-              estimated={selected.estimated}
-              similarityAvg={selected.similarityAvg}
-              status={selected.status}
+              requirement={requirement}
+              detail={validation.detail}
+              estimated={validation.estimated}
+              similarityAvg={validation.similarityAvg}
+              status={status}
             />
           </>
         ) : (
@@ -120,11 +169,17 @@ export function ValidationPage() {
         )}
       </div>
 
-      {selected && (
-        <div className="mt-5">
+      {validation?.detail && requirement && (
+        <div className="mt-5 space-y-5">
+          {selectedMatch?.snippets && selectedMatch.snippets.length > 0 && (
+            <CodeSnippetPanel
+              snippets={selectedMatch.snippets}
+              fileName={selectedMatch.displayName}
+            />
+          )}
           <CodeAssociationSection
-            requirement={selected.requirement}
-            matches={selected.detail.matches}
+            requirement={requirement}
+            matches={validation.detail.matches}
             selectedFile={selectedFile}
             onSelectFile={setSelectedFile}
           />

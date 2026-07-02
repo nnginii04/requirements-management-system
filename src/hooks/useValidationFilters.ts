@@ -1,12 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { ImplementationStatus } from '@/types'
 import type { Requirement } from '@/types'
-import { getValidationDetail } from '@/mocks/data/validationDetails'
-import {
-  calculateEstimatedScore,
-  calculateSimilarityAverage,
-  getValidationStatus,
-} from '@/utils/validation'
+import { getValidationStatus } from '@/utils/validation'
 
 export type ValidationStatusFilter = 'all' | ImplementationStatus
 export type ValidationScoreFilter = 'all' | 'high' | 'medium' | 'low'
@@ -16,19 +11,15 @@ export function useValidationFilters(requirements: Requirement[]) {
   const [statusFilter, setStatusFilter] = useState<ValidationStatusFilter>('all')
   const [scoreFilter, setScoreFilter] = useState<ValidationScoreFilter>('all')
 
-  const withValidation = useMemo(
-    () => requirements.filter((r) => getValidationDetail(r.id)),
-    [requirements],
-  )
-
   const enriched = useMemo(() => {
-    return withValidation.map((req) => {
-      const detail = getValidationDetail(req.id)!
-      const estimated = calculateEstimatedScore(detail.matches, detail.acceptanceCriteriaStatus)
-      const status = getValidationStatus(estimated)
-      return { requirement: req, detail, estimated, status }
-    })
-  }, [withValidation])
+    return requirements
+      .filter((req) => req.implementationScore > 0)
+      .map((req) => {
+        const estimated = req.implementationScore
+        const status = getValidationStatus(estimated)
+        return { requirement: req, estimated, status }
+      })
+  }, [requirements])
 
   const filtered = useMemo(() => {
     return enriched.filter(({ requirement, estimated, status }) => {
@@ -59,20 +50,4 @@ export function useValidationFilters(requirements: Requirement[]) {
     filtered,
     enriched,
   }
-}
-
-export function getSelectedValidation(
-  requirementId: string | null,
-  requirements: Requirement[],
-) {
-  if (!requirementId) return null
-  const req = requirements.find((r) => r.id === requirementId)
-  const detail = getValidationDetail(requirementId)
-  if (!req || !detail) return null
-
-  const estimated = calculateEstimatedScore(detail.matches, detail.acceptanceCriteriaStatus)
-  const similarityAvg = calculateSimilarityAverage(detail.matches)
-  const status = getValidationStatus(estimated)
-
-  return { requirement: req, detail, estimated, similarityAvg, status }
 }

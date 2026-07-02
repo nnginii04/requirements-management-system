@@ -41,11 +41,10 @@ export function RequirementsPage() {
   return (
     <PageContainer
       title={workflow.title}
-      description={workflow.subtitle}
-      workflow={workflow}
-      className="h-full"
+      showWorkflowBanner={false}
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
     >
-      <div className="grid min-h-0 grid-cols-1 gap-4 lg:h-[calc(100vh-17rem)] lg:grid-cols-[280px_1fr_300px]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden lg:grid-cols-[280px_1fr_280px]">
         <RequirementListPanel
           requirements={filtered}
           selectedId={selectedId}

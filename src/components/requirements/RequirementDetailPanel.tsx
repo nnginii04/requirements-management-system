@@ -79,7 +79,7 @@ export function RequirementDetailPanel({
 
   return (
     <Card padding="none" className="flex h-full flex-col overflow-hidden">
-      <div className="border-b border-border p-4">
+      <div className="shrink-0 border-b border-border p-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-medium text-text-secondary">{requirement.id}</p>
@@ -99,7 +99,7 @@ export function RequirementDetailPanel({
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-2 flex flex-wrap gap-1.5">
           <ActionButton icon={Pencil} label="수정" onClick={isEditing ? saveEdit : startEdit} />
           <ActionButton icon={Copy} label="복제" onClick={onDuplicate} />
           <ActionButton icon={Trash2} label="삭제" onClick={onDelete} variant="danger" />
@@ -109,8 +109,8 @@ export function RequirementDetailPanel({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-thin p-4">
-        <div className="grid grid-cols-2 gap-3 text-sm">
+      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin p-3">
+        <div className="grid grid-cols-2 gap-2 text-sm">
           <MetaField label="유형">
             <Badge variant="outline">
               {requirement.type === 'functional' ? requirementTypeLabels.functional : requirementTypeLabels.non_functional}
@@ -156,7 +156,7 @@ export function RequirementDetailPanel({
           <MetaField label="현재 베이스라인">{getBaselineLabel(requirement.baseline)}</MetaField>
         </div>
 
-        <div className="mt-5">
+        <div className="mt-4">
           <SectionHeader title="설명" />
           {isEditing ? (
             <textarea
@@ -172,7 +172,7 @@ export function RequirementDetailPanel({
           )}
         </div>
 
-        <div className="mt-5">
+        <div className="mt-4">
           <SectionHeader title="수용 기준" />
           <ul className="mt-2 space-y-1.5">
             {requirement.acceptanceCriteria.map((c, i) => (

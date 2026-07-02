@@ -151,10 +151,42 @@ Elicitation → Analysis → Specification → Validation → Tracking
 
 점수는 모두 **추정치**이며 UI에서 `~XX%` 또는 `Estimated Implementation Score`로 표시됩니다.
 
+## Phase A — REST API (PoC)
+
+프론트 + API를 함께 실행:
+
+```bash
+./dev-all.sh
+# 또는
+npm run dev:all
+```
+
+API만 실행: `npm run dev:api` (포트 3001)  
+프론트만 실행: `npm run dev` (Vite proxy → `/api` → `:3001`)
+
+### 주요 엔드포인트
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/api/health` | 헬스체크 |
+| GET | `/api/requirements` | 요구사항 목록 |
+| GET | `/api/requirements/:id/impact` | 변경 영향 분석 |
+| GET | `/api/validation/:requirementId` | 검증 상세 + 코드 스니펫 |
+| GET | `/api/builds` | 빌드 이력 |
+| POST | `/api/builds/simulate` | Jenkins 빌드 시뮬레이션 |
+| POST | `/api/webhooks/github` | GitHub push webhook |
+| POST | `/api/webhooks/jenkins` | Jenkins build webhook |
+| GET | `/api/openapi.json` | OpenAPI 3.0 스펙 |
+
+데이터는 `server/db/reqflow.json`에 저장됩니다 (최초 실행 시 mock 시드).
+
 ## 남은 TODO (백엔드/프로덕션)
 
-- [ ] 실제 REST/GraphQL API 연동
-- [ ] Jenkins webhook · Git indexer 연동
+- [x] Phase A REST API (`server/`, JSON DB)
+- [x] Jenkins / GitHub webhook → 점수 재계산
+- [x] 코드 스니펫 패널 (line-level evidence)
+- [x] 변경 영향 분석 (`GET /api/requirements/:id/impact`)
+- [x] OpenAPI v1 (`GET /api/openapi.json`)
 - [ ] 사용자 인증 (SSO/OAuth)
 - [ ] AI 임베딩·유사도 엔진 실연동
 - [ ] 명세서 PDF/Word export

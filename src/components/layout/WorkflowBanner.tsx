@@ -12,8 +12,8 @@ export function WorkflowBanner({ workflow }: WorkflowBannerProps) {
   const stageLabel = lifecycleSteps.find((s) => s.id === workflow.stage)?.label
 
   return (
-    <div className="mb-5 rounded-xl border border-border bg-card px-4 py-3 shadow-card sm:px-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="mb-3 rounded-xl border border-border bg-card px-4 py-2 shadow-card sm:px-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <div className="mb-1.5 flex flex-wrap items-center gap-2">
             <Badge variant="primary">
@@ -36,7 +36,7 @@ export function WorkflowBanner({ workflow }: WorkflowBannerProps) {
           </Link>
         )}
       </div>
-      <div className="mt-3 flex flex-wrap gap-1.5">
+      <div className="mt-2 flex flex-wrap gap-1">
         {workflow.keywords.map((kw) => (
           <span
             key={kw}

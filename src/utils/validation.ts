@@ -3,6 +3,20 @@ import { getRequirementStatusByScore } from '@/utils/requirement'
 
 export type ConnectionStrength = 'strong' | 'medium' | 'weak' | 'hidden'
 
+export interface CodeSnippetLine {
+  lineNumber: number
+  content: string
+  highlighted?: boolean
+}
+
+export interface CodeSnippet {
+  startLine: number
+  endLine: number
+  language: string
+  functionName?: string
+  lines: CodeSnippetLine[]
+}
+
 export interface CodeMatchDetail {
   codeFileId: string
   displayName: string
@@ -15,6 +29,7 @@ export interface CodeMatchDetail {
   reason: string
   classes: string[]
   functions: { name: string; score: number }[]
+  snippets?: CodeSnippet[]
 }
 
 export interface AcceptanceCriterionStatus {

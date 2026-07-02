@@ -15,6 +15,7 @@ import { getRequirementStatusByScore } from '@/utils/requirement'
 import { getSeverityColor } from '@/utils/colors'
 import { severityLabels, relationshipLabels, targetTypeLabels } from '@/utils/labels'
 import { cn } from '@/utils/cn'
+import { ImpactAnalysisSection } from './ImpactAnalysisSection'
 
 interface RequirementAnalysisPanelProps {
   requirement: Requirement | null
@@ -54,14 +55,14 @@ export function RequirementAnalysisPanel({
 
   return (
     <Card padding="none" className="flex h-full flex-col overflow-hidden">
-      <div className="border-b border-border p-4">
+      <div className="shrink-0 border-b border-border p-3">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-secondary" />
           <h3 className="text-sm font-semibold text-text-primary">AI 분석 & 추적성</h3>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-5">
+      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin space-y-4 p-3">
         <section>
           <SectionHeader title="추정 구현 점수" />
           <div className="mt-3 rounded-lg border border-border bg-background p-3">
@@ -187,6 +188,8 @@ export function RequirementAnalysisPanel({
             <p className="text-xs text-success">검토 필요 이슈 없음</p>
           </div>
         )}
+
+        <ImpactAnalysisSection requirementId={requirement.id} />
       </div>
     </Card>
   )

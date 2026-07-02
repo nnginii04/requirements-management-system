@@ -23,17 +23,17 @@ export function PageContainer({
   className,
 }: PageContainerProps) {
   return (
-    <div className={cn('flex flex-1 flex-col', className)}>
+    <div className={cn('flex flex-col', className)}>
       {(title || description || action) && (
-        <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-start sm:justify-between">
+        <div className="mb-3 flex flex-col gap-2 sm:mb-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             {title && (
-              <h1 className="text-xl font-bold tracking-tight text-text-primary sm:text-2xl">
+              <h1 className="text-lg font-bold tracking-tight text-text-primary sm:text-xl">
                 {title}
               </h1>
             )}
             {description && (
-              <p className="mt-1 text-sm text-text-secondary">{description}</p>
+              <p className="mt-0.5 text-sm text-text-secondary">{description}</p>
             )}
           </div>
           {action && <div className="shrink-0">{action}</div>}
