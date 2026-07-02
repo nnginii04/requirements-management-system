@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import {
   Sparkles,
   Loader2,
@@ -13,9 +12,7 @@ import { SectionHeader } from '@/components/ui/SectionHeader'
 import type { Requirement } from '@/types'
 import type { DocumentTabType, GeneratedDocument } from '@/mocks/documentGenerator'
 import {
-  generateDocument,
   runQualityCheck,
-  regenerateSection,
 } from '@/mocks/documentGenerator'
 import { cn } from '@/utils/cn'
 

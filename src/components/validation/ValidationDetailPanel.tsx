@@ -19,7 +19,6 @@ interface ValidationDetailPanelProps {
 }
 
 export function ValidationDetailPanel({
-  requirement,
   detail,
   estimated,
   similarityAvg,

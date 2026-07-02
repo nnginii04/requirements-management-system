@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -9,9 +10,10 @@ import {
   History,
   Settings,
   Hexagon,
+  ChevronDown,
 } from 'lucide-react'
 import { cn } from '@/utils/cn'
-import { currentProject } from '@/mocks'
+import { useApp } from '@/contexts/AppContext'
 
 const navGroups = [
   {
@@ -50,6 +52,9 @@ const navGroups = [
 ]
 
 export function Sidebar() {
+  const { projects, activeProjectId, currentProject, setActiveProject, apiConnected } = useApp()
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false)
+
   return (
     <aside className="hidden h-full w-60 shrink-0 flex-col border-r border-border bg-card md:flex">
       <div className="flex h-16 items-center gap-2.5 border-b border-border px-5">
@@ -62,14 +67,53 @@ export function Sidebar() {
         </div>
       </div>
 
-      <div className="border-b border-border px-4 py-3">
+      <div className="relative border-b border-border px-4 py-3">
         <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-text-secondary">
           현재 프로젝트
         </p>
-        <p className="truncate text-sm font-medium text-text-primary">{currentProject.name}</p>
-        <p className="mt-0.5 text-xs text-text-secondary">
-          {currentProject.totalRequirements}개 · ~{currentProject.progress}% 추정
-        </p>
+        <button
+          type="button"
+          onClick={() => setProjectMenuOpen((o) => !o)}
+          className="flex w-full items-center justify-between gap-2 rounded-lg px-1 py-0.5 text-left hover:bg-gray-50"
+        >
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-text-primary">{currentProject.name}</p>
+            <p className="mt-0.5 text-xs text-text-secondary">
+              {currentProject.totalRequirements ?? 0}개 · ~{currentProject.progress ?? 0}% 추정
+            </p>
+          </div>
+          {projects.length > 1 && (
+            <ChevronDown
+              className={cn(
+                'h-4 w-4 shrink-0 text-text-secondary transition-transform',
+                projectMenuOpen && 'rotate-180',
+              )}
+            />
+          )}
+        </button>
+
+        {projectMenuOpen && projects.length > 1 && (
+          <div className="absolute left-4 right-4 top-full z-20 mt-1 rounded-lg border border-border bg-card py-1 shadow-lg">
+            {projects.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => {
+                  void setActiveProject(p.id)
+                  setProjectMenuOpen(false)
+                }}
+                className={cn(
+                  'block w-full px-3 py-2 text-left text-sm hover:bg-gray-50',
+                  p.id === activeProjectId
+                    ? 'font-medium text-primary'
+                    : 'text-text-primary',
+                )}
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-4 scrollbar-thin">
@@ -105,8 +149,12 @@ export function Sidebar() {
 
       <div className="border-t border-border px-4 py-3">
         <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-success" />
-          <span className="text-xs text-text-secondary">AI 엔진 연결됨</span>
+          <div
+            className={cn('h-2 w-2 rounded-full', apiConnected ? 'bg-success' : 'bg-warning')}
+          />
+          <span className="text-xs text-text-secondary">
+            {apiConnected ? 'API 연결됨' : '오프라인 (목업)'}
+          </span>
         </div>
       </div>
     </aside>

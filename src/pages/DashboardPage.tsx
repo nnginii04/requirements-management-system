@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react'
 import { PageContainer } from '@/components/layout/PageContainer'
 import {
   DashboardHero,
@@ -11,12 +12,43 @@ import {
   ValidationSummaryCard,
 } from '@/components/dashboard'
 import { useWorkflow } from '@/hooks/useWorkflow'
-import { currentProject, currentProjectId } from '@/mocks'
+import { useApp } from '@/contexts/AppContext'
+import { useRequirements } from '@/contexts/RequirementsContext'
+import { getBuildHistoriesByProjectId } from '@/mocks'
+import { fetchBuilds } from '@/api/client'
 import { computeDashboardStats } from '@/utils/dashboard'
+import type { BuildHistory } from '@/types'
 
 export function DashboardPage() {
   const workflow = useWorkflow()
-  const stats = computeDashboardStats(currentProjectId)
+  const { activeProjectId, currentProject } = useApp()
+  const { requirements, apiConnected } = useRequirements()
+  const projectReqs = requirements.filter((r) => r.projectId === activeProjectId)
+
+  const [builds, setBuilds] = useState<BuildHistory[]>(() =>
+    getBuildHistoriesByProjectId(activeProjectId),
+  )
+
+  useEffect(() => {
+    if (!apiConnected) {
+      setBuilds(getBuildHistoriesByProjectId(activeProjectId))
+      return
+    }
+    fetchBuilds()
+      .then((data) =>
+        setBuilds(data.filter((b) => b.projectId === activeProjectId)),
+      )
+      .catch(() => setBuilds(getBuildHistoriesByProjectId(activeProjectId)))
+  }, [apiConnected, requirements, activeProjectId])
+
+  const stats = useMemo(
+    () =>
+      computeDashboardStats(activeProjectId, {
+        requirements: projectReqs,
+        builds,
+      }),
+    [activeProjectId, projectReqs, builds],
+  )
 
   return (
     <PageContainer

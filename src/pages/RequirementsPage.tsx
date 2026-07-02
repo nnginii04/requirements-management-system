@@ -7,7 +7,7 @@ import {
 import { useRequirements } from '@/contexts/RequirementsContext'
 import { useRequirementFilters } from '@/hooks/useRequirementFilters'
 import { useWorkflow } from '@/hooks/useWorkflow'
-import { currentProjectId } from '@/mocks'
+import { useApp } from '@/contexts/AppContext'
 
 export function RequirementsPage() {
   const workflow = useWorkflow()
@@ -22,8 +22,9 @@ export function RequirementsPage() {
     duplicateRequirement,
     getVersionsFor,
   } = useRequirements()
+  const { activeProjectId } = useApp()
 
-  const projectRequirements = requirements.filter((r) => r.projectId === currentProjectId)
+  const projectRequirements = requirements.filter((r) => r.projectId === activeProjectId)
   const selected = projectRequirements.find((r) => r.id === selectedId) ?? null
 
   const {

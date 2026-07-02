@@ -1,10 +1,22 @@
 import { useMemo, useState } from 'react'
 import type { ImplementationStatus } from '@/types'
 import type { Requirement } from '@/types'
-import { getValidationStatus } from '@/utils/validation'
+import { getValidationDetail } from '@/mocks/data/validationDetails'
+import { calculateEstimatedScore, getValidationStatus } from '@/utils/validation'
 
 export type ValidationStatusFilter = 'all' | ImplementationStatus
 export type ValidationScoreFilter = 'all' | 'high' | 'medium' | 'low'
+
+function hasValidationData(req: Requirement): boolean {
+  return req.implementationScore > 0 || Boolean(getValidationDetail(req.id))
+}
+
+function getListEstimatedScore(req: Requirement): number {
+  if (req.implementationScore > 0) return req.implementationScore
+  const detail = getValidationDetail(req.id)
+  if (!detail) return 0
+  return calculateEstimatedScore(detail.matches, detail.acceptanceCriteriaStatus)
+}
 
 export function useValidationFilters(requirements: Requirement[]) {
   const [search, setSearch] = useState('')
@@ -13,9 +25,9 @@ export function useValidationFilters(requirements: Requirement[]) {
 
   const enriched = useMemo(() => {
     return requirements
-      .filter((req) => req.implementationScore > 0)
+      .filter(hasValidationData)
       .map((req) => {
-        const estimated = req.implementationScore
+        const estimated = getListEstimatedScore(req)
         const status = getValidationStatus(estimated)
         return { requirement: req, estimated, status }
       })

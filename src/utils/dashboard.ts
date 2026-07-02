@@ -184,10 +184,18 @@ function buildValidationSummary(requirements: Requirement[]): ValidationSummary 
   }
 }
 
-export function computeDashboardStats(projectId: string): DashboardStats {
-  const requirements = getRequirementsByProjectId(projectId)
+export function computeDashboardStats(
+  projectId: string,
+  options?: {
+    requirements?: Requirement[]
+    builds?: BuildHistory[]
+  },
+): DashboardStats {
+  const requirements = options?.requirements ?? getRequirementsByProjectId(projectId)
   const findings = getAnalysisFindingsByProjectId(projectId)
-  const builds = getBuildHistoriesByProjectId(projectId)
+  const builds =
+    options?.builds ??
+    getBuildHistoriesByProjectId(projectId)
   const documents = getDocumentsByProjectId(projectId)
 
   const statusDistribution: StatusDistributionItem[] = (

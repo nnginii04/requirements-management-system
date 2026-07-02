@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Sparkles } from 'lucide-react'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { Card } from '@/components/ui/Card'
@@ -10,18 +10,40 @@ import {
   AIExplanationPanel,
   AnalysisWarningCards,
 } from '@/components/analysis'
+import { useApp } from '@/contexts/AppContext'
 import { useRequirements } from '@/contexts/RequirementsContext'
 import { useWorkflow } from '@/hooks/useWorkflow'
-import { currentProjectId } from '@/mocks'
-import { computeAnalysisSummary, getAllFindings } from '@/utils/analysis'
+import { loadAnalysisData } from '@/utils/analysisApi'
 
 export function AnalysisPage() {
   const workflow = useWorkflow()
+  const { activeProjectId, apiConnected } = useApp()
   const { requirements } = useRequirements()
-  const projectReqs = requirements.filter((r) => r.projectId === currentProjectId)
-  const summary = computeAnalysisSummary(projectReqs)
-  const findings = getAllFindings()
-  const [selectedFindingId, setSelectedFindingId] = useState<string | null>(findings[0]?.id ?? null)
+
+  const [findings, setFindings] = useState(() => [] as Awaited<ReturnType<typeof loadAnalysisData>>['findings'])
+  const [summary, setSummary] = useState(() => ({
+    functionalCount: 0,
+    nonFunctionalCount: 0,
+    duplicateCandidates: 0,
+    conflictCandidates: 0,
+    missingRequirements: 0,
+    traceabilityGaps: 0,
+    totalFindings: 0,
+  }))
+  const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    loadAnalysisData(activeProjectId, requirements, apiConnected).then((data) => {
+      if (cancelled) return
+      setFindings(data.findings)
+      setSummary(data.summary)
+      setSelectedFindingId((prev) => prev ?? data.findings[0]?.id ?? null)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [activeProjectId, requirements, apiConnected])
 
   const selectedFinding = findings.find((f) => f.id === selectedFindingId) ?? null
 

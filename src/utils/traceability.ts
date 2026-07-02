@@ -83,8 +83,6 @@ export function resolveTraceability(
     })
     .filter(Boolean) as { id: string; title: string; relationship: string }[]
 
-  const baseline = requirement.baseline ? getBaselineById(requirement.baseline) : null
-
   return {
     source: requirement.source ?? defaultSources[requirement.id] ?? '—',
     documents: docs.map((d) => ({ id: d.id, title: d.title })),

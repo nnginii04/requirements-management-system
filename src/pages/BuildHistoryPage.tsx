@@ -14,7 +14,7 @@ import {
 } from '@/components/build'
 import { useRequirements } from '@/contexts/RequirementsContext'
 import { useWorkflow } from '@/hooks/useWorkflow'
-import { currentProjectId } from '@/mocks'
+import { useApp } from '@/contexts/AppContext'
 import { fetchBuilds, simulateBuild } from '@/api/client'
 import type { BuildHistory } from '@/types'
 import { getBuildHistoriesByProjectId } from '@/mocks'
@@ -29,19 +29,20 @@ import {
 export function BuildHistoryPage() {
   const workflow = useWorkflow()
   const { requirements, apiConnected, refresh } = useRequirements()
-  const projectReqs = requirements.filter((r) => r.projectId === currentProjectId)
+  const { activeProjectId } = useApp()
+  const projectReqs = requirements.filter((r) => r.projectId === activeProjectId)
 
   const [allBuilds, setAllBuilds] = useState<BuildHistory[]>(() =>
-    getBuildHistoriesByProjectId(currentProjectId),
+    getBuildHistoriesByProjectId(activeProjectId),
   )
   const [simulating, setSimulating] = useState(false)
 
   useEffect(() => {
     if (!apiConnected) return
     fetchBuilds()
-      .then((builds) => setAllBuilds(builds.filter((b) => b.projectId === currentProjectId)))
+      .then((builds) => setAllBuilds(builds.filter((b) => b.projectId === activeProjectId)))
       .catch(() => {})
-  }, [apiConnected, requirements])
+  }, [apiConnected, requirements, activeProjectId])
 
   const [selectedBuildNumber, setSelectedBuildNumber] = useState<number | null>(
     allBuilds[0]?.buildNumber ?? null,
@@ -84,7 +85,7 @@ export function BuildHistoryPage() {
         status: 'success',
       })
       const builds = await fetchBuilds()
-      setAllBuilds(builds.filter((b) => b.projectId === currentProjectId))
+      setAllBuilds(builds.filter((b) => b.projectId === activeProjectId))
       setSelectedBuildNumber(result.buildNumber)
       await refresh()
     } finally {

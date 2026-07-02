@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Sparkles, ChevronRight } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -41,9 +40,9 @@ export function AIFindingsTable({ findings, selectedId, onSelect }: AIFindingsTa
               <th className="px-4 py-3 font-medium">유형</th>
               <th className="px-4 py-3 font-medium">요구사항 ID</th>
               <th className="px-4 py-3 font-medium">설명</th>
-              <th className="px-4 py-3 font-medium">심각도</th>
-              <th className="px-4 py-3 font-medium">신뢰도</th>
-              <th className="px-4 py-3 font-medium">권장 조치</th>
+              <th className="w-16 whitespace-nowrap px-4 py-3 font-medium">심각도</th>
+              <th className="w-20 whitespace-nowrap px-4 py-3 font-medium">신뢰도</th>
+              <th className="whitespace-nowrap px-4 py-3 font-medium">권장 조치</th>
               <th className="px-4 py-3 font-medium" />
             </tr>
           </thead>
@@ -72,10 +71,10 @@ export function AIFindingsTable({ findings, selectedId, onSelect }: AIFindingsTa
                   <td className="max-w-xs px-4 py-3 text-xs text-text-secondary">
                     {finding.description}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="whitespace-nowrap px-4 py-3">
                     <span
                       className={cn(
-                        'rounded-md px-2 py-0.5 text-[10px] font-medium uppercase',
+                        'inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium',
                         severityColor.bg,
                         severityColor.text,
                       )}
@@ -83,17 +82,17 @@ export function AIFindingsTable({ findings, selectedId, onSelect }: AIFindingsTa
                       {severityLabels[finding.severity] ?? finding.severity}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="whitespace-nowrap px-4 py-3">
                     <ConfidenceBadge value={finding.confidence} />
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="whitespace-nowrap px-4 py-3">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation()
                         alert(`${getActionLabel(finding.suggestedAction)} 실행 (mock)`)
                       }}
-                      className="rounded-md border border-primary/30 bg-primary/5 px-2 py-1 text-[10px] font-medium text-primary hover:bg-primary/10"
+                      className="whitespace-nowrap rounded-md border border-primary/30 bg-primary/5 px-2 py-1 text-[10px] font-medium text-primary hover:bg-primary/10"
                     >
                       {getActionLabel(finding.suggestedAction)}
                     </button>
@@ -177,7 +176,13 @@ export function AIExplanationPanel({ finding }: AIExplanationPanelProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className={cn('rounded-md px-2 py-0.5 text-[10px] font-medium uppercase', severityColor.bg, severityColor.text)}>
+          <span
+            className={cn(
+              'inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium',
+              severityColor.bg,
+              severityColor.text,
+            )}
+          >
             {severityLabels[finding.severity] ?? finding.severity}
           </span>
           <ConfidenceBadge value={finding.confidence} />

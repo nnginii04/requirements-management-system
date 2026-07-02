@@ -7,6 +7,11 @@ import { seedIfEmpty } from './db/seed.js'
 import { requirementsRouter } from './routes/requirements.js'
 import { validationRouter } from './routes/validation.js'
 import { buildsRouter } from './routes/builds.js'
+import { projectsRouter } from './routes/projects.js'
+import { analysisRouter } from './routes/analysis.js'
+import { documentsRouter } from './routes/documents.js'
+import { usersRouter } from './routes/users.js'
+import { versionsRouter } from './routes/versions.js'
 import { webhooksRouter } from './routes/webhooks.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -31,6 +36,11 @@ async function main() {
   app.use('/api/requirements', requirementsRouter)
   app.use('/api/validation', validationRouter)
   app.use('/api/builds', buildsRouter)
+  app.use('/api/projects', projectsRouter)
+  app.use('/api/analysis', analysisRouter)
+  app.use('/api/documents', documentsRouter)
+  app.use('/api/users', usersRouter)
+  app.use('/api/versions', versionsRouter)
   app.use('/api/webhooks', webhooksRouter)
 
   app.listen(PORT, () => {

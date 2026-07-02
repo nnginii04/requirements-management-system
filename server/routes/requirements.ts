@@ -89,7 +89,12 @@ requirementsRouter.patch('/:id', (req, res) => {
 requirementsRouter.post('/', (req, res) => {
   const body = req.body as Partial<Requirement>
   const state = loadDb()
-  const newId = `REQ-${String(state.requirements.length + 1).padStart(3, '0')}`
+
+  const maxNum = state.requirements.reduce((max, r) => {
+    const match = r.id.match(/^REQ-(\d+)$/)
+    return match ? Math.max(max, Number.parseInt(match[1], 10)) : max
+  }, 0)
+  const newId = `REQ-${String(maxNum + 1).padStart(3, '0')}`
 
   const created: Requirement = {
     id: newId,
@@ -118,4 +123,23 @@ requirementsRouter.post('/', (req, res) => {
   })
 
   res.status(201).json({ data: created })
+})
+
+requirementsRouter.delete('/:id', (req, res) => {
+  let deleted = false
+
+  mutate((state) => {
+    const idx = state.requirements.findIndex((r) => r.id === req.params.id)
+    if (idx === -1) return
+    deleted = true
+    state.requirements.splice(idx, 1)
+    state.versions = state.versions.filter((v) => v.requirementId !== req.params.id)
+    state.validationDetails = state.validationDetails.filter(
+      (d) => d.requirementId !== req.params.id,
+    )
+    state.snapshots = state.snapshots.filter((s) => s.requirementId !== req.params.id)
+  })
+
+  if (!deleted) return res.status(404).json({ error: 'Requirement not found' })
+  res.status(204).send()
 })

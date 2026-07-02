@@ -5,13 +5,11 @@ import { PageContainer } from '@/components/layout/PageContainer'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { SectionHeader } from '@/components/ui/SectionHeader'
+import { useApp } from '@/contexts/AppContext'
 import { useRequirements } from '@/contexts/RequirementsContext'
 import { useWorkflow } from '@/hooks/useWorkflow'
-import { currentProjectId, users } from '@/contexts/RequirementsContext'
 import {
   generateRequirementsFromText,
-  createRequirementFromForm,
-  createRequirementFromAI,
   type AIGeneratedRequirement,
 } from '@/mocks/aiGeneration'
 import type { RequirementPriority, RequirementType } from '@/types'
@@ -22,7 +20,8 @@ const DEMO_INPUT =
 export function NewRequirementPage() {
   const workflow = useWorkflow()
   const navigate = useNavigate()
-  const { requirements, addRequirement } = useRequirements()
+  const { activeProjectId, users } = useApp()
+  const { addRequirement, addRequirementsSequential } = useRequirements()
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -40,13 +39,14 @@ export function NewRequirementPage() {
   const [aiResults, setAiResults] = useState<AIGeneratedRequirement[]>([])
   const [savedMessage, setSavedMessage] = useState('')
 
-  const handleDirectSave = () => {
+  const handleDirectSave = async () => {
     if (!title.trim()) {
       alert('제목을 입력하세요.')
       return
     }
 
-    const req = createRequirementFromForm({
+    const created = await addRequirement({
+      projectId: activeProjectId,
       title,
       description,
       type,
@@ -54,15 +54,12 @@ export function NewRequirementPage() {
       owner,
       dueDate: dueDate || new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
       source,
-      acceptanceCriteria: criteria.split('\n'),
+      acceptanceCriteria: criteria.split('\n').filter(Boolean),
       relatedFeature,
       tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
-      projectId: currentProjectId,
-      existingCount: requirements.length,
     })
 
-    addRequirement(req)
-    setSavedMessage(`"${req.id}" 요구사항이 등록되었습니다.`)
+    setSavedMessage(`"${created.id}" 요구사항이 등록되었습니다.`)
     setTimeout(() => navigate('/requirements'), 800)
   }
 
@@ -77,13 +74,21 @@ export function NewRequirementPage() {
     }
   }
 
-  const handleSaveAIResults = () => {
-    let nextIndex = requirements.length
-    aiResults.forEach((ai) => {
-      addRequirement(createRequirementFromAI(ai, currentProjectId, nextIndex, owner))
-      nextIndex += 1
-    })
-    setSavedMessage(`${aiResults.length}개 AI 요구사항이 등록되었습니다.`)
+  const handleSaveAIResults = async () => {
+    const inputs = aiResults.map((ai) => ({
+      projectId: activeProjectId,
+      title: ai.title,
+      description: ai.description,
+      type: ai.type,
+      priority: ai.priority,
+      owner,
+      acceptanceCriteria: ai.acceptanceCriteria,
+      source: 'AI 생성',
+      tags: ['ai-generated'],
+    }))
+
+    const created = await addRequirementsSequential(inputs)
+    setSavedMessage(`${created.length}개 AI 요구사항이 등록되었습니다.`)
     setTimeout(() => navigate('/requirements'), 800)
   }
 

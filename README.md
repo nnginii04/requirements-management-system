@@ -177,6 +177,23 @@ API만 실행: `npm run dev:api` (포트 3001)
 | POST | `/api/webhooks/github` | GitHub push webhook |
 | POST | `/api/webhooks/jenkins` | Jenkins build webhook |
 | GET | `/api/openapi.json` | OpenAPI 3.0 스펙 |
+| GET | `/api/projects` | 프로젝트 목록 (멀티 프로젝트) |
+| PATCH | `/api/projects/active` | 활성 프로젝트 전환 |
+| GET | `/api/analysis/projects/:id/findings` | AI 분석 결과 |
+| GET | `/api/documents/projects/:id` | 문서 카탈로그·생성 이력 |
+| POST | `/api/documents/generate` | SRS/PRD/BRS 생성 |
+| GET | `/api/users/me` | 현재 사용자 |
+| GET | `/api/versions` | 요구사항 버전 이력 전체 |
+| GET | `/api/validation?projectId=` | 검증 목록 요약 |
+
+프론트는 API 연결 시 위 엔드포인트를 우선 사용하고, 실패 시 `src/mocks`로 폴백합니다.
+
+### E2E 테스트
+
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
 
 데이터는 `server/db/reqflow.json`에 저장됩니다 (최초 실행 시 mock 시드).
 
@@ -191,8 +208,8 @@ API만 실행: `npm run dev:api` (포트 3001)
 - [ ] AI 임베딩·유사도 엔진 실연동
 - [ ] 명세서 PDF/Word export
 - [ ] 실시간 빌드 알림
-- [ ] 다중 프로젝트/워크스페이스
-- [ ] E2E 테스트 (Playwright/Cypress)
+- [x] 다중 프로젝트/워크스페이스 (프로젝트 전환 UI + API)
+- [x] E2E 테스트 (Playwright smoke)
 - [ ] i18n (한/영 전환)
 
 ## 기술 스택

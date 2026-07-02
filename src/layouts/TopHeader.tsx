@@ -1,10 +1,14 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Sparkles, Download, ChevronDown } from 'lucide-react'
-import { currentProject, currentUser } from '@/mocks'
+import { useApp } from '@/contexts/AppContext'
+import { cn } from '@/utils/cn'
 import { MobileNav } from '@/layouts/Sidebar'
 
 export function TopHeader() {
   const navigate = useNavigate()
+  const { currentProject, currentUser, users, setCurrentUser } = useApp()
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
 
   return (
     <header className="shrink-0 border-b border-border bg-card">
@@ -48,19 +52,49 @@ export function TopHeader() {
             SRS보내기
           </button>
 
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-gray-50"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-white">
-              {currentUser.avatarInitials}
-            </div>
-            <div className="hidden text-left lg:block">
-              <p className="text-sm font-medium text-text-primary">{currentUser.name}</p>
-              <p className="text-[11px] text-text-secondary">{currentUser.role}</p>
-            </div>
-            <ChevronDown className="hidden h-4 w-4 text-text-secondary lg:block" />
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setUserMenuOpen((o) => !o)}
+              className="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-gray-50"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-white">
+                {currentUser.avatarInitials}
+              </div>
+              <div className="hidden text-left lg:block">
+                <p className="text-sm font-medium text-text-primary">{currentUser.name}</p>
+                <p className="text-[11px] text-text-secondary">{currentUser.role}</p>
+              </div>
+              <ChevronDown
+                className={cn(
+                  'hidden h-4 w-4 text-text-secondary lg:block transition-transform',
+                  userMenuOpen && 'rotate-180',
+                )}
+              />
+            </button>
+
+            {userMenuOpen && (
+              <div className="absolute right-0 top-full z-30 mt-1 min-w-[180px] rounded-lg border border-border bg-card py-1 shadow-lg">
+                {users.map((u) => (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => {
+                      void setCurrentUser(u.id)
+                      setUserMenuOpen(false)
+                    }}
+                    className={cn(
+                      'block w-full px-3 py-2 text-left text-sm hover:bg-gray-50',
+                      u.id === currentUser.id ? 'font-medium text-primary' : 'text-text-primary',
+                    )}
+                  >
+                    {u.name}
+                    <span className="ml-1 text-xs text-text-secondary">({u.role})</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
       <MobileNav />

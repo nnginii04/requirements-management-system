@@ -13,15 +13,16 @@ import {
 } from '@/components/validation'
 import { useRequirements } from '@/contexts/RequirementsContext'
 import { useWorkflow } from '@/hooks/useWorkflow'
-import { currentProjectId } from '@/mocks'
+import { useApp } from '@/contexts/AppContext'
 import { useValidationFilters } from '@/hooks/useValidationFilters'
-import { fetchValidation, type ValidationResponse } from '@/api/client'
-import type { ImplementationStatus } from '@/types'
+import type { ValidationResponse } from '@/api/client'
+import { asImplementationStatus, loadValidationDetail } from '@/utils/validationApi'
 
 export function ValidationPage() {
   const workflow = useWorkflow()
   const { requirements, apiConnected, refresh } = useRequirements()
-  const projectReqs = requirements.filter((r) => r.projectId === currentProjectId)
+  const { activeProjectId } = useApp()
+  const projectReqs = requirements.filter((r) => r.projectId === activeProjectId)
 
   const {
     search,
@@ -36,6 +37,7 @@ export function ValidationPage() {
   const [selectedId, setSelectedId] = useState<string | null>('REQ-001')
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [validation, setValidation] = useState<ValidationResponse | null>(null)
+  const [dataSource, setDataSource] = useState<'api' | 'mock' | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
 
   const listItems = filtered.map(({ requirement, estimated, status }) => ({
@@ -52,30 +54,32 @@ export function ValidationPage() {
   }, [filtered, selectedId])
 
   useEffect(() => {
-    if (!selectedId) {
+    const requirement = projectReqs.find((r) => r.id === selectedId)
+    if (!selectedId || !requirement) {
       setValidation(null)
+      setDataSource(null)
       return
     }
+
     let cancelled = false
     setLoadingDetail(true)
-    fetchValidation(selectedId)
-      .then((data) => {
-        if (!cancelled) {
-          setValidation(data)
-          const firstFile = data.detail?.matches[0]?.displayName ?? null
-          setSelectedFile((prev) => prev ?? firstFile)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setValidation(null)
+
+    loadValidationDetail(requirement, apiConnected)
+      .then(({ data, source }) => {
+        if (cancelled) return
+        setValidation(data)
+        setDataSource(source)
+        const firstFile = data.detail?.matches[0]?.displayName ?? null
+        setSelectedFile((prev) => prev ?? firstFile)
       })
       .finally(() => {
         if (!cancelled) setLoadingDetail(false)
       })
+
     return () => {
       cancelled = true
     }
-  }, [selectedId, requirements])
+  }, [selectedId, projectReqs, apiConnected, requirements])
 
   const handleSelect = (id: string) => {
     setSelectedId(id)
@@ -83,8 +87,21 @@ export function ValidationPage() {
   }
 
   const selectedMatch = validation?.detail?.matches.find((m) => m.displayName === selectedFile)
-  const status = validation?.status as ImplementationStatus | undefined
+  const status = validation?.status
+    ? asImplementationStatus(validation.status)
+    : undefined
   const requirement = validation?.requirement
+
+  const connectionLabel =
+    dataSource === 'api'
+      ? 'API 연결됨'
+      : dataSource === 'mock'
+        ? apiConnected
+          ? 'API 오류 · mock fallback'
+          : '오프라인 · mock 데이터'
+        : apiConnected
+          ? 'API 연결됨'
+          : '오프라인 · mock 데이터'
 
   return (
     <PageContainer
@@ -93,16 +110,15 @@ export function ValidationPage() {
       workflow={workflow}
       action={
         <div className="flex items-center gap-2">
-          {apiConnected && (
-            <button
-              type="button"
-              onClick={() => refresh()}
-              className="flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-xs text-text-secondary hover:bg-gray-50"
-            >
-              <RefreshCw className="h-3 w-3" />
-              동기화
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => refresh()}
+            className="flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-xs text-text-secondary hover:bg-gray-50"
+          >
+            <RefreshCw className="h-3 w-3" />
+            동기화
+          </button>
+          <Badge variant={dataSource === 'api' ? 'success' : 'outline'}>{connectionLabel}</Badge>
           <Badge variant="success">검증 단계</Badge>
         </div>
       }
@@ -124,8 +140,8 @@ export function ValidationPage() {
           </Badge>
         </div>
         <p className="mt-3 text-[11px] text-text-secondary">
-          * 모든 점수는 추정 구현 점수(AI 추정치)이며, 실제 구현 완료를 보장하지 않습니다.
-          {apiConnected ? ' · API 연결됨' : ' · 오프라인(목 데이터)'}
+          * 모든 점수는 추정 구현 점수(AI 추정치)이며, 실제 구현 완료를 보장하지 않습니다. ·{' '}
+          {connectionLabel}
         </p>
       </Card>
 

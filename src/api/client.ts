@@ -3,9 +3,22 @@ import type {
   Requirement,
   RequirementBuildSnapshot,
   RequirementVersion,
+  User,
 } from '@/types'
 import type { RequirementValidationDetail } from '@/utils/validation'
-import type { ImpactAnalysis } from '@/api/types'
+import type {
+  ImpactAnalysis,
+  ProjectView,
+  SessionInfo,
+  IntegrationStatus,
+  ValidationListItem,
+  DocumentsResponse,
+  GenerateDocumentRequest,
+  AnalysisFinding,
+  AnalysisSummary,
+  DocumentQualityCheck,
+  GeneratedDocumentRecord,
+} from '@/api/types'
 
 const BASE = '/api'
 
@@ -17,6 +30,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     const body = await res.text()
     throw new Error(`API ${res.status}: ${body || res.statusText}`)
+  }
+  if (res.status === 204) {
+    return undefined as T
   }
   const json = (await res.json()) as { data: T }
   return json.data
@@ -51,6 +67,10 @@ export function createRequirement(body: Partial<Requirement>): Promise<Requireme
     method: 'POST',
     body: JSON.stringify(body),
   })
+}
+
+export function deleteRequirement(id: string): Promise<void> {
+  return request<void>(`/requirements/${id}`, { method: 'DELETE' })
 }
 
 export function fetchRequirementVersions(requirementId: string): Promise<RequirementVersion[]> {
@@ -94,4 +114,98 @@ export function simulateBuild(body: {
   status?: 'success' | 'failure'
 }): Promise<{ buildNumber: number; updatedRequirements: string[]; build: BuildHistory }> {
   return request('/builds/simulate', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export function fetchAllVersions(): Promise<RequirementVersion[]> {
+  return request<RequirementVersion[]>('/versions')
+}
+
+export function fetchValidationList(projectId: string): Promise<ValidationListItem[]> {
+  return request<ValidationListItem[]>(`/validation?projectId=${encodeURIComponent(projectId)}`)
+}
+
+export function fetchProjects(): Promise<ProjectView[]> {
+  return request<ProjectView[]>('/projects')
+}
+
+export function fetchProject(projectId: string): Promise<ProjectView> {
+  return request<ProjectView>(`/projects/${projectId}`)
+}
+
+export function fetchSession(): Promise<SessionInfo> {
+  return request<SessionInfo>('/projects/active/current')
+}
+
+export function setActiveProject(projectId: string): Promise<{ activeProjectId: string }> {
+  return request('/projects/active', {
+    method: 'PATCH',
+    body: JSON.stringify({ projectId }),
+  })
+}
+
+export function fetchBaselines(projectId: string) {
+  return request<import('@/types').Baseline[]>(`/projects/${projectId}/baselines`)
+}
+
+export function fetchIntegrations(projectId: string): Promise<IntegrationStatus> {
+  return request<IntegrationStatus>(`/projects/${projectId}/integrations`)
+}
+
+export function fetchAnalysisFindings(projectId: string): Promise<AnalysisFinding[]> {
+  return request<AnalysisFinding[]>(`/analysis/projects/${projectId}/findings`)
+}
+
+export function fetchAnalysisSummary(projectId: string): Promise<AnalysisSummary> {
+  return request<AnalysisSummary>(`/analysis/projects/${projectId}/summary`)
+}
+
+export function fetchDocuments(projectId: string): Promise<DocumentsResponse> {
+  return request<DocumentsResponse>(`/documents/projects/${projectId}`)
+}
+
+export function generateDocumentApi(body: GenerateDocumentRequest): Promise<GeneratedDocumentRecord> {
+  return request<GeneratedDocumentRecord>('/documents/generate', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export function regenerateDocumentSection(
+  documentId: string,
+  sectionId: string,
+): Promise<GeneratedDocumentRecord> {
+  return request<GeneratedDocumentRecord>(`/documents/${documentId}/regenerate-section`, {
+    method: 'POST',
+    body: JSON.stringify({ sectionId }),
+  })
+}
+
+export function fetchDocumentQuality(documentId: string): Promise<DocumentQualityCheck> {
+  return request<DocumentQualityCheck>(`/documents/${documentId}/quality`)
+}
+
+export function patchDocumentSection(
+  documentId: string,
+  sectionId: string,
+  content: string,
+): Promise<GeneratedDocumentRecord> {
+  return request<GeneratedDocumentRecord>(`/documents/${documentId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ sectionId, content }),
+  })
+}
+
+export function fetchCurrentUser(): Promise<User> {
+  return request<User>('/users/me')
+}
+
+export function fetchUsers(): Promise<User[]> {
+  return request<User[]>('/users')
+}
+
+export function setCurrentUser(userId: string): Promise<User> {
+  return request<User>('/users/me', {
+    method: 'PATCH',
+    body: JSON.stringify({ userId }),
+  })
 }

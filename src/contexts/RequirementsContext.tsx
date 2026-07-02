@@ -14,9 +14,39 @@ import type {
 } from '@/types'
 import { requirements as initialRequirements } from '@/mocks/data/requirements'
 import { requirementVersions as initialVersions } from '@/mocks/data/requirementVersions'
-import { currentProjectId } from '@/mocks/data/projects'
-import { currentUser, users } from '@/mocks/data/users'
 import * as api from '@/api/client'
+import { nextRequirementId } from '@/utils/requirementIds'
+
+export type RequirementInput = Partial<Requirement> & {
+  title: string
+  projectId: string
+}
+
+function buildLocalRequirement(input: RequirementInput, id: string): Requirement {
+  const now = new Date().toISOString()
+  return {
+    id,
+    projectId: input.projectId,
+    title: input.title,
+    description: input.description ?? '',
+    type: input.type ?? 'functional',
+    priority: input.priority ?? 'medium',
+    status: input.status ?? 'draft',
+    owner: input.owner ?? 'user-001',
+    createdAt: input.createdAt ?? now,
+    updatedAt: input.updatedAt ?? now,
+    dueDate:
+      input.dueDate ?? new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+    version: input.version ?? '1.0',
+    baseline: input.baseline ?? null,
+    acceptanceCriteria: input.acceptanceCriteria ?? [],
+    implementationScore: input.implementationScore ?? 0,
+    traceabilityLinks: input.traceabilityLinks ?? [],
+    source: input.source,
+    tags: input.tags,
+    relatedFeature: input.relatedFeature,
+  }
+}
 
 interface RequirementsContextValue {
   requirements: Requirement[]
@@ -29,9 +59,10 @@ interface RequirementsContextValue {
   updateRequirement: (id: string, patch: Partial<Requirement>) => void
   updateStatus: (id: string, status: RequirementWorkflowStatus) => void
   assignBaseline: (id: string, baselineId: string | null) => void
-  deleteRequirement: (id: string) => void
-  duplicateRequirement: (id: string) => Requirement | null
-  addRequirement: (req: Requirement) => void
+  deleteRequirement: (id: string) => Promise<void>
+  duplicateRequirement: (id: string) => Promise<Requirement | null>
+  addRequirement: (input: RequirementInput) => Promise<Requirement>
+  addRequirementsSequential: (inputs: RequirementInput[]) => Promise<Requirement[]>
   addVersion: (version: RequirementVersion) => void
   getVersionsFor: (requirementId: string) => RequirementVersion[]
 }
@@ -55,8 +86,12 @@ export function RequirementsProvider({ children }: { children: ReactNode }) {
       return
     }
     try {
-      const reqs = await api.fetchRequirements()
+      const [reqs, vers] = await Promise.all([
+        api.fetchRequirements(),
+        api.fetchAllVersions(),
+      ])
       setRequirements(reqs)
+      setVersions(vers)
     } catch {
       setApiConnected(false)
     } finally {
@@ -96,48 +131,82 @@ export function RequirementsProvider({ children }: { children: ReactNode }) {
     [updateRequirement],
   )
 
-  const deleteRequirement = useCallback((id: string) => {
-    setRequirements((prev) => prev.filter((r) => r.id !== id))
-    setSelectedId((prev) => (prev === id ? null : prev))
-  }, [])
-
-  const duplicateRequirement = useCallback(
-    (id: string) => {
-      const source = requirements.find((r) => r.id === id)
-      if (!source) return null
-
-      const newId = `REQ-${String(requirements.length + 1).padStart(3, '0')}`
-      const copy: Requirement = {
-        ...source,
-        id: newId,
-        title: `${source.title} (복사)`,
-        status: 'draft',
-        version: '1.0',
-        baseline: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        implementationScore: 0,
-        traceabilityLinks: [],
-      }
-      setRequirements((prev) => [...prev, copy])
-      setSelectedId(newId)
+  const deleteRequirement = useCallback(
+    async (id: string) => {
       if (apiConnected) {
-        api.createRequirement(copy).then(refresh).catch(() => {})
+        try {
+          await api.deleteRequirement(id)
+          await refresh()
+          setSelectedId((prev) => (prev === id ? null : prev))
+          return
+        } catch {
+          // fallback to local delete
+        }
       }
-      return copy
+      setRequirements((prev) => prev.filter((r) => r.id !== id))
+      setSelectedId((prev) => (prev === id ? null : prev))
     },
-    [requirements, apiConnected, refresh],
+    [apiConnected, refresh],
   )
 
   const addRequirement = useCallback(
-    (req: Requirement) => {
-      setRequirements((prev) => [...prev, req])
-      setSelectedId(req.id)
+    async (input: RequirementInput): Promise<Requirement> => {
       if (apiConnected) {
-        api.createRequirement(req).then(refresh).catch(() => {})
+        try {
+          const created = await api.createRequirement(input)
+          await refresh()
+          setSelectedId(created.id)
+          return created
+        } catch {
+          // fallback to local create
+        }
       }
+
+      let created!: Requirement
+      setRequirements((prev) => {
+        const id = input.id ?? nextRequirementId(prev)
+        created = buildLocalRequirement(input, id)
+        return [...prev, created]
+      })
+      setSelectedId(created.id)
+      return created
     },
     [apiConnected, refresh],
+  )
+
+  const addRequirementsSequential = useCallback(
+    async (inputs: RequirementInput[]): Promise<Requirement[]> => {
+      const created: Requirement[] = []
+      for (const input of inputs) {
+        const req = await addRequirement(input)
+        created.push(req)
+      }
+      return created
+    },
+    [addRequirement],
+  )
+
+  const duplicateRequirement = useCallback(
+    async (id: string): Promise<Requirement | null> => {
+      const source = requirements.find((r) => r.id === id)
+      if (!source) return null
+
+      return addRequirement({
+        projectId: source.projectId,
+        title: `${source.title} (복사)`,
+        description: source.description,
+        type: source.type,
+        priority: source.priority,
+        status: 'draft',
+        owner: source.owner,
+        dueDate: source.dueDate,
+        acceptanceCriteria: [...source.acceptanceCriteria],
+        source: source.source,
+        tags: source.tags ? [...source.tags] : undefined,
+        relatedFeature: source.relatedFeature,
+      })
+    },
+    [requirements, addRequirement],
   )
 
   const addVersion = useCallback((version: RequirementVersion) => {
@@ -167,6 +236,7 @@ export function RequirementsProvider({ children }: { children: ReactNode }) {
       deleteRequirement,
       duplicateRequirement,
       addRequirement,
+      addRequirementsSequential,
       addVersion,
       getVersionsFor,
     }),
@@ -183,6 +253,7 @@ export function RequirementsProvider({ children }: { children: ReactNode }) {
       deleteRequirement,
       duplicateRequirement,
       addRequirement,
+      addRequirementsSequential,
       addVersion,
       getVersionsFor,
     ],
@@ -200,5 +271,3 @@ export function useRequirements() {
   if (!ctx) throw new Error('useRequirements must be used within RequirementsProvider')
   return ctx
 }
-
-export { currentProjectId, currentUser, users }

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { Badge } from '@/components/ui/Badge'
 import {
@@ -6,20 +6,22 @@ import {
   DocumentPreview,
   DocumentQualityPanel,
 } from '@/components/documents'
+import { useApp } from '@/contexts/AppContext'
 import { useRequirements } from '@/contexts/RequirementsContext'
 import { useWorkflow } from '@/hooks/useWorkflow'
-import { currentProjectId } from '@/mocks'
+import type { DocumentTabType } from '@/mocks/documentGenerator'
 import {
   generateDocument,
   regenerateSection,
-  type DocumentTabType,
-  type GeneratedDocument,
-} from '@/mocks/documentGenerator'
+  saveSectionContent,
+  type DocumentState,
+} from '@/utils/documentsApi'
 
 export function DocumentsPage() {
   const workflow = useWorkflow()
+  const { activeProjectId, apiConnected } = useApp()
   const { requirements } = useRequirements()
-  const projectReqs = requirements.filter((r) => r.projectId === currentProjectId)
+  const projectReqs = requirements.filter((r) => r.projectId === activeProjectId)
 
   const [activeTab, setActiveTab] = useState<DocumentTabType>('srs')
   const [selectedReqIds, setSelectedReqIds] = useState<Set<string>>(
@@ -27,10 +29,15 @@ export function DocumentsPage() {
   )
   const [includeTraceability, setIncludeTraceability] = useState(true)
   const [includeNfr, setIncludeNfr] = useState(true)
-  const [document, setDocument] = useState<GeneratedDocument | null>(null)
+  const [document, setDocument] = useState<DocumentState | null>(null)
   const [generating, setGenerating] = useState(false)
   const [editing, setEditing] = useState(false)
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setSelectedReqIds(new Set(projectReqs.map((r) => r.id)))
+    setDocument(null)
+  }, [activeProjectId, projectReqs])
 
   const toggleReq = useCallback((id: string) => {
     setSelectedReqIds((prev) => {
@@ -45,10 +52,13 @@ export function DocumentsPage() {
     setGenerating(true)
     try {
       const selected = projectReqs.filter((r) => selectedReqIds.has(r.id))
-      const doc = await generateDocument(activeTab, selected, {
-        includeTraceability,
-        includeNfr,
-      })
+      const doc = await generateDocument(
+        activeTab,
+        activeProjectId,
+        selected,
+        { includeTraceability, includeNfr },
+        apiConnected,
+      )
       setDocument(doc)
       setEditing(false)
     } finally {
@@ -60,7 +70,7 @@ export function DocumentsPage() {
     if (!document) return
     setRegeneratingId(sectionId)
     try {
-      const updated = await regenerateSection(document, sectionId)
+      const updated = await regenerateSection(document, sectionId, apiConnected)
       setDocument({
         ...document,
         sections: document.sections.map((s) => (s.id === sectionId ? updated : s)),
@@ -70,12 +80,16 @@ export function DocumentsPage() {
     }
   }
 
-  const handleContentChange = (sectionId: string, content: string) => {
+  const handleContentChange = async (sectionId: string, content: string) => {
     if (!document) return
     setDocument({
       ...document,
       sections: document.sections.map((s) => (s.id === sectionId ? { ...s, content } : s)),
     })
+    if (apiConnected && document.id && !editing) {
+      const saved = await saveSectionContent(document, sectionId, content, apiConnected)
+      setDocument(saved)
+    }
   }
 
   return (

@@ -1,20 +1,37 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { GitBranch, Hammer, Link2, Shield, Sparkles } from 'lucide-react'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { SectionHeader } from '@/components/ui/SectionHeader'
+import { useApp } from '@/contexts/AppContext'
 import { useWorkflow } from '@/hooks/useWorkflow'
-import {
-  currentProject,
-  currentUser,
-  getBaselinesByProjectId,
-  currentProjectId,
-} from '@/mocks'
+import { loadSettingsData } from '@/utils/settingsApi'
+import type { Baseline } from '@/types'
+import type { IntegrationStatus, ProjectView } from '@/api/types'
 
 export function SettingsPage() {
   const workflow = useWorkflow()
-  const baselines = getBaselinesByProjectId(currentProjectId)
+  const { activeProjectId, currentUser, apiConnected } = useApp()
+  const [project, setProject] = useState<ProjectView | null>(null)
+  const [baselines, setBaselines] = useState<Baseline[]>([])
+  const [integrations, setIntegrations] = useState<IntegrationStatus | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    loadSettingsData(activeProjectId, apiConnected).then((data) => {
+      if (cancelled) return
+      setProject(data.project)
+      setBaselines(data.baselines)
+      setIntegrations(data.integrations)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [activeProjectId, apiConnected])
+
+  const projectInfo = project
 
   return (
     <PageContainer
@@ -28,24 +45,30 @@ export function SettingsPage() {
             title="프로젝트 정보"
             description="요구사항 엔지니어링 프로젝트 메타데이터"
           />
-          <dl className="mt-4 space-y-3 text-sm">
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">프로젝트명</dt>
-              <dd className="text-right font-medium text-text-primary">{currentProject.name}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">요구사항 수</dt>
-              <dd className="font-medium text-text-primary">{currentProject.totalRequirements}개</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">추정 구현 점수</dt>
-              <dd className="font-medium text-primary">~{currentProject.progress}%</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">팀 멤버</dt>
-              <dd className="font-medium text-text-primary">{currentProject.memberCount}명</dd>
-            </div>
-          </dl>
+          {projectInfo && (
+            <dl className="mt-4 space-y-3 text-sm">
+              <div className="flex justify-between gap-4">
+                <dt className="text-text-secondary">프로젝트명</dt>
+                <dd className="text-right font-medium text-text-primary">{projectInfo.name}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-text-secondary">요구사항 수</dt>
+                <dd className="font-medium text-text-primary">
+                  {projectInfo.totalRequirements ?? 0}개
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-text-secondary">추정 구현 점수</dt>
+                <dd className="font-medium text-primary">~{projectInfo.progress ?? 0}%</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-text-secondary">팀 멤버</dt>
+                <dd className="font-medium text-text-primary">
+                  {projectInfo.memberCount ?? 0}명
+                </dd>
+              </div>
+            </dl>
+          )}
         </Card>
 
         <Card>
@@ -131,42 +154,47 @@ export function SettingsPage() {
         </Card>
 
         <Card>
-          <SectionHeader
-            title="외부 연동"
-            description="외부 도구 연동 (목업 — 실제 API 미연결)"
-          />
-          <div className="mt-4 space-y-3">
-            <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-              <div className="flex items-center gap-3">
-                <Hammer className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="text-sm font-medium text-text-primary">Jenkins</p>
-                  <p className="text-xs text-text-secondary">빌드 웹훅 · 진척률 동기화</p>
+          <SectionHeader title="외부 연동" description="Jenkins · Git · AI 분석 엔진 연동 상태" />
+          {integrations && (
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <Hammer className="h-5 w-5 text-primary" />
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">Jenkins</p>
+                    <p className="text-xs text-text-secondary">{integrations.jenkins.label}</p>
+                  </div>
                 </div>
+                <Badge variant={integrations.jenkins.connected ? 'secondary' : 'outline'}>
+                  {integrations.jenkins.connected ? '연결됨' : '미연결'}
+                </Badge>
               </div>
-              <Badge variant="secondary">설정됨 (목업)</Badge>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-              <div className="flex items-center gap-3">
-                <GitBranch className="h-5 w-5 text-secondary" />
-                <div>
-                  <p className="text-sm font-medium text-text-primary">Git 저장소</p>
-                  <p className="text-xs text-text-secondary">코드 인덱싱 · 유사도 분석</p>
+              <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <GitBranch className="h-5 w-5 text-secondary" />
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">Git 저장소</p>
+                    <p className="text-xs text-text-secondary">{integrations.git.label}</p>
+                  </div>
                 </div>
+                <Badge variant={integrations.git.connected ? 'secondary' : 'outline'}>
+                  {integrations.git.connected ? '연결됨' : '미연결'}
+                </Badge>
               </div>
-              <Badge variant="secondary">연결됨 (목업)</Badge>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-              <div className="flex items-center gap-3">
-                <Shield className="h-5 w-5 text-success" />
-                <div>
-                  <p className="text-sm font-medium text-text-primary">AI 분석 엔진</p>
-                  <p className="text-xs text-text-secondary">임베딩 · 중복/충돌 탐지</p>
+              <div className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <Shield className="h-5 w-5 text-success" />
+                  <div>
+                    <p className="text-sm font-medium text-text-primary">AI 분석 엔진</p>
+                    <p className="text-xs text-text-secondary">{integrations.aiEngine.label}</p>
+                  </div>
                 </div>
+                <Badge variant={integrations.aiEngine.connected ? 'success' : 'outline'}>
+                  {integrations.aiEngine.connected ? '활성' : '대기'}
+                </Badge>
               </div>
-              <Badge variant="success">활성</Badge>
             </div>
-          </div>
+          )}
         </Card>
       </div>
 
@@ -176,7 +204,7 @@ export function SettingsPage() {
           <Link to="/requirements" className="font-medium text-primary hover:underline">
             요구사항 관리
           </Link>
-          페이지에서 요구사항 단위로 관리됩니다. 실제 Jenkins/Git/ALM API 연동은 백엔드 구현 후 활성화됩니다.
+          페이지에서 요구사항 단위로 관리됩니다.
         </p>
       </Card>
     </PageContainer>
