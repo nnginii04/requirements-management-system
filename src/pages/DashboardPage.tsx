@@ -14,7 +14,12 @@ import {
 import { useWorkflow } from '@/hooks/useWorkflow'
 import { useApp } from '@/contexts/AppContext'
 import { useRequirements } from '@/contexts/RequirementsContext'
-import { fetchBuilds, fetchDashboardSummary } from '@/api/client'
+import {
+  fetchBuilds,
+  fetchDashboardSummary,
+  recomputeAnalysis,
+  recomputeValidationProject,
+} from '@/api/client'
 import {
   computeDashboardStats,
   getDashboardBuildFallback,
@@ -39,7 +44,7 @@ import type { DashboardAggregateResponse } from '@/api/types'
 export function DashboardPage() {
   const workflow = useWorkflow()
   const { activeProjectId, currentProject } = useApp()
-  const { requirements, apiConnected } = useRequirements()
+  const { requirements, apiConnected, refresh } = useRequirements()
   const projectReqs = requirements.filter((r) => r.projectId === activeProjectId)
   const [buildSource, setBuildSource] = useState<'api' | 'fallback_mock'>('fallback_mock')
   const [analysisData, setAnalysisData] = useState<Awaited<ReturnType<typeof loadAnalysisData>>>({
@@ -63,10 +68,43 @@ export function DashboardPage() {
     useState<TraceabilitySource>('fallback_mock')
   const [dashboardAggregate, setDashboardAggregate] = useState<DashboardAggregateResponse | null>(null)
   const [dashboardSource, setDashboardSource] = useState<'api' | 'fallback'>('fallback')
+  const [recomputing, setRecomputing] = useState(false)
+  const [recomputeMessage, setRecomputeMessage] = useState<string | null>(null)
 
   const [builds, setBuilds] = useState<BuildHistory[]>(() =>
     getDashboardBuildFallback(activeProjectId),
   )
+
+  const reloadDashboardData = async () => {
+    if (apiConnected) {
+      try {
+        const data = await fetchDashboardSummary(activeProjectId)
+        setDashboardAggregate(data)
+        setDashboardSource('api')
+      } catch {
+        setDashboardAggregate(null)
+        setDashboardSource('fallback')
+      }
+    } else {
+      setDashboardAggregate(null)
+      setDashboardSource('fallback')
+    }
+
+    const [analysis, validationListResult, validationSummaryResult, traceabilityResult] =
+      await Promise.all([
+        loadAnalysisData(activeProjectId, projectReqs, apiConnected),
+        loadValidationList(activeProjectId, projectReqs, apiConnected),
+        loadDashboardValidationSummary(activeProjectId, projectReqs, apiConnected),
+        loadProjectTraceabilityMatrix(activeProjectId, projectReqs, apiConnected),
+      ])
+
+    setAnalysisData(analysis)
+    setValidationList(validationListResult.items)
+    setValidationSource(validationSummaryResult.source)
+    setValidationSummary(validationSummaryResult.summary)
+    setTraceabilityMatrix(traceabilityResult.data)
+    setTraceabilitySource(traceabilityResult.source)
+  }
 
   useEffect(() => {
     if (!apiConnected) {
@@ -88,36 +126,8 @@ export function DashboardPage() {
   useEffect(() => {
     let cancelled = false
 
-    if (apiConnected) {
-      fetchDashboardSummary(activeProjectId)
-        .then((data) => {
-          if (cancelled) return
-          setDashboardAggregate(data)
-          setDashboardSource('api')
-        })
-        .catch(() => {
-          if (cancelled) return
-          setDashboardAggregate(null)
-          setDashboardSource('fallback')
-        })
-    } else {
-      setDashboardAggregate(null)
-      setDashboardSource('fallback')
-    }
-
-    Promise.all([
-      loadAnalysisData(activeProjectId, projectReqs, apiConnected),
-      loadValidationList(activeProjectId, projectReqs, apiConnected),
-      loadDashboardValidationSummary(activeProjectId, projectReqs, apiConnected),
-      loadProjectTraceabilityMatrix(activeProjectId, projectReqs, apiConnected),
-    ]).then(([analysis, validationListResult, validationSummaryResult, traceabilityResult]) => {
+    void reloadDashboardData().catch(() => {
       if (cancelled) return
-      setAnalysisData(analysis)
-      setValidationList(validationListResult.items)
-      setValidationSource(validationSummaryResult.source)
-      setValidationSummary(validationSummaryResult.summary)
-      setTraceabilityMatrix(traceabilityResult.data)
-      setTraceabilitySource(traceabilityResult.source)
     })
 
     return () => {
@@ -157,6 +167,22 @@ export function DashboardPage() {
     ],
   )
 
+  const handleRecompute = async () => {
+    setRecomputing(true)
+    setRecomputeMessage(null)
+    try {
+      await recomputeAnalysis(activeProjectId)
+      await recomputeValidationProject(activeProjectId)
+      await refresh()
+      await reloadDashboardData()
+      setRecomputeMessage('재분석 완료')
+    } catch {
+      setRecomputeMessage(apiConnected ? '재분석 API 실패 · fallback 데이터 유지' : '오프라인 · mock fallback')
+    } finally {
+      setRecomputing(false)
+    }
+  }
+
   return (
     <PageContainer
       title={workflow.title}
@@ -164,9 +190,20 @@ export function DashboardPage() {
       workflow={workflow}
       action={
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void handleRecompute()}
+            disabled={recomputing}
+            className="rounded-lg border border-border px-2 py-1 text-[10px] text-text-secondary hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {recomputing ? 'AI 분석 실행 중…' : 'AI 분석 실행'}
+          </button>
           <span className="rounded-full border border-border px-2 py-1 text-[10px] text-text-secondary">
             {dashboardSource === 'api' ? 'dashboard API 기반' : 'fallback data'}
           </span>
+          {recomputeMessage && (
+            <span className="text-[10px] text-text-secondary">{recomputeMessage}</span>
+          )}
         </div>
       }
     >

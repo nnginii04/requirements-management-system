@@ -15,7 +15,7 @@ import { SectionHeader } from '@/components/ui/SectionHeader'
 import { RequirementVersionCompare } from './RequirementVersionCompare'
 import type { Requirement, RequirementVersion, RequirementWorkflowStatus } from '@/types'
 import type { TraceabilityMatrixItem } from '@/api/types'
-import { getUserById, getBaselinesByProjectId, hasReviewIssue } from '@/mocks'
+import { getUserById, getBaselinesByProjectId } from '@/mocks'
 import { getRequirementStatusByScore } from '@/utils/requirement'
 import { workflowStatusLabels, requirementTypeLabels, priorityLabels } from '@/utils/labels'
 import { getBaselineLabel, resolveTraceability } from '@/utils/traceability'
@@ -28,11 +28,14 @@ interface RequirementDetailPanelProps {
   allRequirements: Requirement[]
   apiConnected: boolean
   versions: RequirementVersion[]
+  recomputing?: boolean
+  recomputeMessage?: string | null
   onUpdateStatus: (status: RequirementWorkflowStatus) => void
   onAssignBaseline: (baselineId: string | null) => void
   onDelete: () => void
   onDuplicate: () => void
   onEdit: (patch: Partial<Requirement>) => void
+  onRecompute: () => void
 }
 
 export function RequirementDetailPanel({
@@ -40,11 +43,14 @@ export function RequirementDetailPanel({
   allRequirements,
   apiConnected,
   versions,
+  recomputing = false,
+  recomputeMessage = null,
   onUpdateStatus,
   onAssignBaseline,
   onDelete,
   onDuplicate,
   onEdit,
+  onRecompute,
 }: RequirementDetailPanelProps) {
   const [showVersionCompare, setShowVersionCompare] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
@@ -85,7 +91,7 @@ export function RequirementDetailPanel({
   const owner = getUserById(requirement.owner)
   const implStatus = getRequirementStatusByScore(
     requirement.implementationScore,
-    hasReviewIssue(requirement.id),
+    requirement.status === 'in_review',
   )
   const fallbackTrace = resolveTraceability(requirement, allRequirements)
   const baselines = getBaselinesByProjectId(requirement.projectId)
@@ -141,10 +147,18 @@ export function RequirementDetailPanel({
           <ActionButton icon={Pencil} label="수정" onClick={isEditing ? saveEdit : startEdit} />
           <ActionButton icon={Copy} label="복제" onClick={onDuplicate} />
           <ActionButton icon={Trash2} label="삭제" onClick={onDelete} variant="danger" />
-          <ActionButton icon={Sparkles} label="AI 재분석" onClick={() => alert('AI 재분석이 실행되었습니다. (mock)')} />
+          <ActionButton
+            icon={Sparkles}
+            label={recomputing ? '재분석 중…' : 'AI 재분석'}
+            onClick={onRecompute}
+            disabled={recomputing}
+          />
           <ActionButton icon={GitCompare} label="버전 비교" onClick={() => setShowVersionCompare(!showVersionCompare)} />
           <ActionButton icon={History} label="변경 이력" onClick={() => setShowHistory(!showHistory)} />
         </div>
+        {recomputeMessage && (
+          <p className="mt-2 text-[11px] text-text-secondary">{recomputeMessage}</p>
+        )}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin p-3">
@@ -345,18 +359,21 @@ function ActionButton({
   label,
   onClick,
   variant = 'default',
+  disabled = false,
 }: {
   icon: React.ComponentType<{ className?: string }>
   label: string
   onClick: () => void
   variant?: 'default' | 'danger'
+  disabled?: boolean
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={cn(
-        'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-medium transition-colors',
+        'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60',
         variant === 'danger'
           ? 'border-danger/30 text-danger hover:bg-danger/10'
           : 'border-border text-text-secondary hover:bg-gray-50',

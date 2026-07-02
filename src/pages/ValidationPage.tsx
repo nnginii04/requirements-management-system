@@ -15,7 +15,7 @@ import { useRequirements } from '@/contexts/RequirementsContext'
 import { useWorkflow } from '@/hooks/useWorkflow'
 import { useApp } from '@/contexts/AppContext'
 import { useValidationFilters } from '@/hooks/useValidationFilters'
-import type { ValidationResponse } from '@/api/client'
+import { recomputeValidationRequirement, type ValidationResponse } from '@/api/client'
 import { asImplementationStatus, loadValidationDetail } from '@/utils/validationApi'
 import {
   loadValidationList,
@@ -51,6 +51,8 @@ export function ValidationPage() {
   const [traceabilityItems, setTraceabilityItems] = useState([] as import('@/api/types').TraceabilityMatrixItem[])
   const [traceabilitySource, setTraceabilitySource] = useState<TraceabilitySource | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
+  const [recomputing, setRecomputing] = useState(false)
+  const [recomputeMessage, setRecomputeMessage] = useState<string | null>(null)
 
   const reloadList = useCallback(async () => {
     setLoadingList(true)
@@ -120,6 +122,22 @@ export function ValidationPage() {
     await reloadList()
   }
 
+  const handleRecompute = async () => {
+    if (!selectedId) return
+    setRecomputing(true)
+    setRecomputeMessage(null)
+    try {
+      await recomputeValidationRequirement(selectedId)
+      await refresh()
+      await reloadList()
+      setRecomputeMessage('재검증 완료')
+    } catch {
+      setRecomputeMessage(apiConnected ? '재검증 API 실패 · 기존 데이터 유지' : '오프라인 · mock fallback')
+    } finally {
+      setRecomputing(false)
+    }
+  }
+
   const selectedMatch = validation?.detail?.matches.find((m) => m.displayName === selectedFile)
   const status = validation?.status
     ? asImplementationStatus(validation.status)
@@ -162,6 +180,15 @@ export function ValidationPage() {
             <RefreshCw className="h-3 w-3" />
             동기화
           </button>
+          <button
+            type="button"
+            onClick={() => void handleRecompute()}
+            disabled={!selectedId || recomputing}
+            className="flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-xs text-text-secondary hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Sparkles className="h-3 w-3" />
+            {recomputing ? '재검증 중…' : '재검증'}
+          </button>
           <Badge variant={isApiBacked ? 'success' : 'outline'}>{connectionLabel}</Badge>
           <Badge variant="success">검증 단계</Badge>
         </div>
@@ -187,6 +214,9 @@ export function ValidationPage() {
           * 모든 점수는 Estimated Implementation Score(AI 추정치)이며, 실제 구현 완료를 보장하지 않습니다. ·{' '}
           {connectionLabel}
         </p>
+        {recomputeMessage && (
+          <p className="mt-1 text-[11px] text-text-secondary">{recomputeMessage}</p>
+        )}
       </Card>
 
       <div className="grid min-h-0 grid-cols-1 gap-4 lg:min-h-[28rem] lg:grid-cols-[240px_1fr_280px]">

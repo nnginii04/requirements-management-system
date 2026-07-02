@@ -9,7 +9,6 @@ import {
   getAnalysisFindingsByRequirementId,
   getSimilarityScoresByRequirementId,
   getCodeFileById,
-  hasReviewIssue,
 } from '@/mocks'
 import { getRequirementStatusByScore } from '@/utils/requirement'
 import { getSeverityColor } from '@/utils/colors'
@@ -44,7 +43,7 @@ export function RequirementAnalysisPanel({
 
   const implStatus = getRequirementStatusByScore(
     requirement.implementationScore,
-    hasReviewIssue(requirement.id),
+    requirement.status === 'in_review',
   )
   const findings = getAnalysisFindingsByRequirementId(requirement.id)
   const scores = getSimilarityScoresByRequirementId(requirement.id)

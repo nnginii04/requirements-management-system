@@ -7,7 +7,6 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import type { Requirement } from '@/types'
 import type { StatusFilter, TypeFilter, PriorityFilter } from '@/hooks/useRequirementFilters'
-import { hasReviewIssue } from '@/mocks'
 import { getRequirementStatusByScore } from '@/utils/requirement'
 import { getBaselineLabel } from '@/utils/traceability'
 import { requirementTypeLabels, priorityLabels } from '@/utils/labels'
@@ -195,7 +194,7 @@ function RequirementListItem({
 }) {
   const implStatus = getRequirementStatusByScore(
     requirement.implementationScore,
-    hasReviewIssue(requirement.id),
+    requirement.status === 'in_review',
   )
   const owner = getUserById(requirement.owner)
   const priorityColor = getPriorityColor(requirement.priority)

@@ -79,7 +79,7 @@ export function CodeAssociationSection({
               <Badge variant="outline" className="mb-3 text-[10px]">
                 {traceabilitySource === 'api'
                   ? 'traceability API 기반'
-                  : 'mock fallback · Traceability Matrix API 없음'}
+                  : 'mock fallback · traceability 데이터 대체 표시'}
               </Badge>
               <TraceabilityMatrix requirement={requirement} matches={visible} items={traceabilityItems} />
             </div>

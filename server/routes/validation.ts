@@ -6,6 +6,10 @@ import {
   getValidationStatus,
 } from '../../src/utils/validation.js'
 import { enrichMatchesWithSnippets } from '../lib/snippets.js'
+import {
+  recomputeProjectValidation,
+  recomputeRequirementValidation,
+} from '../services/recompute.js'
 
 export const validationRouter = Router()
 
@@ -76,4 +80,45 @@ validationRouter.get('/:requirementId', (req, res) => {
   const payload = buildValidationPayload(req.params.requirementId)
   if (!payload) return res.status(404).json({ error: 'Requirement not found' })
   res.json({ data: payload })
+})
+
+validationRouter.post('/projects/:projectId/recompute', (req, res) => {
+  const state = loadDb()
+  const exists = state.projects.some((project) => project.id === req.params.projectId)
+  if (!exists) return res.status(404).json({ error: 'Project not found' })
+
+  recomputeProjectValidation(req.params.projectId)
+  const updatedState = loadDb()
+  const count = updatedState.validationDetails.filter((detail) =>
+    updatedState.requirements.some(
+      (requirement) =>
+        requirement.projectId === req.params.projectId &&
+        requirement.id === detail.requirementId,
+    ),
+  ).length
+
+  res.json({
+    data: {
+      projectId: req.params.projectId,
+      validationDetailsCount: count,
+      updatedAt: new Date().toISOString(),
+    },
+  })
+})
+
+validationRouter.post('/:requirementId/recompute', (req, res) => {
+  const state = loadDb()
+  const requirement = state.requirements.find((item) => item.id === req.params.requirementId)
+  if (!requirement) return res.status(404).json({ error: 'Requirement not found' })
+
+  recomputeRequirementValidation(req.params.requirementId)
+  const payload = buildValidationPayload(req.params.requirementId)
+  res.json({
+    data: {
+      requirementId: req.params.requirementId,
+      estimated: payload?.estimated ?? requirement.implementationScore,
+      status: payload?.status ?? getValidationStatus(requirement.implementationScore),
+      updatedAt: new Date().toISOString(),
+    },
+  })
 })

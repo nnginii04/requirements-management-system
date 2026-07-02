@@ -173,8 +173,20 @@ export function fetchAnalysisSummary(projectId: string): Promise<AnalysisSummary
   return request<AnalysisSummary>(`/analysis/projects/${projectId}/summary`)
 }
 
+export function recomputeAnalysis(projectId: string) {
+  return request(`/analysis/projects/${projectId}/recompute`, { method: 'POST' })
+}
+
 export function fetchDocuments(projectId: string): Promise<DocumentsResponse> {
   return request<DocumentsResponse>(`/documents/projects/${projectId}`)
+}
+
+export function recomputeValidationRequirement(requirementId: string) {
+  return request(`/validation/${requirementId}/recompute`, { method: 'POST' })
+}
+
+export function recomputeValidationProject(projectId: string) {
+  return request(`/validation/projects/${projectId}/recompute`, { method: 'POST' })
 }
 
 export function generateDocumentApi(body: GenerateDocumentRequest): Promise<GeneratedDocumentRecord> {

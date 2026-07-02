@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import type { ImplementationStatus, Requirement, RequirementPriority } from '@/types'
-import { hasReviewIssue } from '@/mocks'
 import { getRequirementStatusByScore } from '@/utils/requirement'
 
 export type TypeFilter = 'all' | 'functional' | 'non_functional'
@@ -19,7 +18,7 @@ export function useRequirementFilters(requirements: Requirement[]) {
     return requirements.filter((req) => {
       const implStatus = getRequirementStatusByScore(
         req.implementationScore,
-        hasReviewIssue(req.id),
+        req.status === 'in_review',
       )
 
       if (search) {

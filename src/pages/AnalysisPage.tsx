@@ -14,11 +14,12 @@ import { useApp } from '@/contexts/AppContext'
 import { useRequirements } from '@/contexts/RequirementsContext'
 import { useWorkflow } from '@/hooks/useWorkflow'
 import { loadAnalysisData } from '@/utils/analysisApi'
+import { recomputeAnalysis, recomputeValidationProject } from '@/api/client'
 
 export function AnalysisPage() {
   const workflow = useWorkflow()
   const { activeProjectId, apiConnected } = useApp()
-  const { requirements } = useRequirements()
+  const { requirements, refresh } = useRequirements()
 
   const [findings, setFindings] = useState(() => [] as Awaited<ReturnType<typeof loadAnalysisData>>['findings'])
   const [summary, setSummary] = useState(() => ({
@@ -31,6 +32,8 @@ export function AnalysisPage() {
     totalFindings: 0,
   }))
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null)
+  const [recomputing, setRecomputing] = useState(false)
+  const [recomputeMessage, setRecomputeMessage] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -47,12 +50,43 @@ export function AnalysisPage() {
 
   const selectedFinding = findings.find((f) => f.id === selectedFindingId) ?? null
 
+  const handleRecompute = async () => {
+    setRecomputing(true)
+    setRecomputeMessage(null)
+    try {
+      await recomputeAnalysis(activeProjectId)
+      await recomputeValidationProject(activeProjectId)
+      await refresh()
+      const data = await loadAnalysisData(activeProjectId, requirements, apiConnected)
+      setFindings(data.findings)
+      setSummary(data.summary)
+      setSelectedFindingId(data.findings[0]?.id ?? null)
+      setRecomputeMessage('재분석 완료')
+    } catch {
+      setRecomputeMessage(apiConnected ? '재분석 API 실패 · 기존 데이터 유지' : '오프라인 · mock fallback')
+    } finally {
+      setRecomputing(false)
+    }
+  }
+
   return (
     <PageContainer
       title={workflow.title}
       description={workflow.subtitle}
       workflow={workflow}
-      action={<Badge variant="secondary">분석 단계</Badge>}
+      action={
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void handleRecompute()}
+            disabled={recomputing}
+            className="rounded-lg border border-border px-2 py-1 text-[10px] text-text-secondary hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {recomputing ? '재분석 중…' : '재분석 실행'}
+          </button>
+          <Badge variant="secondary">분석 단계</Badge>
+        </div>
+      }
     >
       <Card className="mb-5" padding="lg">
         <div className="flex items-center gap-3">
@@ -71,6 +105,9 @@ export function AnalysisPage() {
           <span>·</span>
           <span>기능 흐름 갭 → 누락 후보</span>
         </div>
+        {recomputeMessage && (
+          <p className="mt-3 text-[11px] text-text-secondary">{recomputeMessage}</p>
+        )}
       </Card>
 
       <AnalysisSummaryCards summary={summary} />

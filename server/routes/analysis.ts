@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { loadDb } from '../db/store.js'
 import type { AnalysisFinding } from '../../src/types/domain.js'
 import { calculateOverallProgress } from '../../src/utils/requirement.js'
+import { recomputeProjectAnalysis } from '../services/recompute.js'
 
 export const analysisRouter = Router()
 
@@ -42,4 +43,23 @@ analysisRouter.get('/findings/:id', (req, res) => {
   const finding = loadDb().analysisFindings.find((f) => f.id === req.params.id)
   if (!finding) return res.status(404).json({ error: 'Finding not found' })
   res.json({ data: finding })
+})
+
+analysisRouter.post('/projects/:projectId/recompute', (req, res) => {
+  const state = loadDb()
+  const exists = state.projects.some((project) => project.id === req.params.projectId)
+  if (!exists) return res.status(404).json({ error: 'Project not found' })
+
+  const updated = recomputeProjectAnalysis(req.params.projectId)
+  const findings = findingsForProject(req.params.projectId)
+  res.json({
+    data: {
+      projectId: req.params.projectId,
+      findingsCount: findings.length,
+      updatedAt: new Date().toISOString(),
+      traceabilityRecords: updated.traceabilityRecords.filter(
+        (record) => record.projectId === req.params.projectId,
+      ).length,
+    },
+  })
 })
