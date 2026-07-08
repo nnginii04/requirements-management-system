@@ -1,23 +1,369 @@
 # ReqFlow — Requirements Engineering Platform
 
-AI 기반 요구사항 관리 및 구현 검증 SaaS UI (Mock 데이터 기반 프론트엔드)
+AI 기반 요구사항 관리 · 구현 검증 · 추적성 관리 PoC
 
-## 실행 방법
+React 프론트엔드와 Express REST API, JSON DB 영속화를 결합한 **API-first Requirements Engineering Platform**입니다.  
+대시보드 집계, AI 분석 재계산, 구현 검증, Traceability Matrix, Jenkins 빌드 시뮬레이션까지 하나의 시연 흐름으로 연결됩니다.
 
-Mac에 Node.js가 없다면, 프로젝트 루트의 `dev.sh`를 사용하세요 (Node를 `~/.local/node`에 자동 사용).
+> 점수·분석·검증 결과는 모두 **Estimated Implementation Score / AI 추정치**이며, 실제 구현 완료를 보장하지 않습니다.
+
+---
+
+## 주요 기능
+
+| 영역 | 설명 |
+|------|------|
+| **Dashboard** | 프로젝트 KPI, 요구사항 커버리지, AI 인사이트, 검증 요약, 추적성 요약, 빌드 타임라인 |
+| **Requirements** | CRUD, 베이스라인, 버전 이력, Traceability API 기반 상세 추적성 |
+| **AI Analysis** | 중복/충돌/누락/추적성 갭 findings, 프로젝트 단위 재분석 |
+| **Validation** | 요구사항-코드 유사도, Estimated Implementation Score, Traceability Matrix |
+| **Build History** | Jenkins 빌드 이력, 시뮬레이션, 요구사항별 진척 스냅샷 |
+| **Documents** | SRS / PRD / BRS 생성 및 품질 점검 |
+| **Integrations** | GitHub / Jenkins webhook PoC, 빌드 기반 점수 갱신 |
+
+---
+
+## 빠른 시작
+
+### 1. 의존성 설치
+
+```bash
+cd 요구사항
+npm install
+```
+
+### 2. 프론트 + API 함께 실행 (권장)
+
+```bash
+./dev-all.sh
+# 또는
+npm run dev:all
+```
+
+| 서비스 | URL |
+|--------|-----|
+| Frontend | http://localhost:5173 |
+| API | http://localhost:3001 |
+| Health check | http://localhost:3001/api/health |
+| OpenAPI | http://localhost:3001/api/openapi.json |
+
+### 3. 따로 실행
+
+```bash
+# 터미널 1 — 프론트 (Vite, /api → :3001 프록시)
+npm run dev
+
+# 터미널 2 — API
+npm run dev:api
+```
+
+### 4. 프론트만 실행 (제한적)
 
 ```bash
 ./dev.sh
-```
-
-또는 Node.js가 설치된 경우:
-
-```bash
-npm install
+# 또는
 npm run dev
 ```
 
-브라우저에서 Vite가 안내하는 로컬 URL(기본 `http://localhost:5173`)로 접속합니다.
+API 없이 실행하면 화면은 뜨지만, 대부분의 데이터는 `src/mocks` fallback으로 동작합니다.  
+**시연·개발 시에는 반드시 `npm run dev:all`을 사용하세요.**
+
+### Node.js가 없을 때 (Mac)
+
+`dev.sh`, `dev-all.sh`는 `~/.local/node` 경로의 Node를 우선 사용합니다.
+
+```bash
+export PATH="$HOME/.local/node/bin:$PATH"
+./dev-all.sh
+```
+
+### 프로덕션 빌드
+
+```bash
+npm run build
+npm run preview
+```
+
+---
+
+## 시스템 아키텍처
+
+```
+사용자
+  ↓
+React Frontend (src/pages, src/components)
+  ↓
+Global State (AppContext, RequirementsContext)
+  ↓
+API Client + Utils (src/api, src/utils/*Api.ts)
+  ↓  /api (Vite proxy → :3001)
+Express Server (server/index.ts)
+  ↓
+Routes (server/routes/*)
+  ↓
+Services (server/services/recompute.ts, jenkins.ts, documents.ts)
+  ↓
+JSON DB (server/db/reqflow.json)
+  ↓
+Frontend 화면 갱신 (refresh / reload)
+```
+
+### 데이터 흐름 원칙
+
+1. 프론트는 **API 연결 시 서버 데이터를 우선** 사용합니다.
+2. API 실패·오프라인 시 `src/mocks`로 **fallback** 합니다.
+3. 재분석/재검증/빌드 시뮬레이션 결과는 **JSON DB에 영속 저장**됩니다.
+4. 새로고침 후에도 서버를 통해 저장된 결과는 유지됩니다.
+
+---
+
+## Requirements Engineering Lifecycle
+
+```
+Elicitation → Analysis → Specification → Validation → Tracking
+```
+
+| 단계 | 경로 | 역할 |
+|------|------|------|
+| **Tracking / Overview** | `/dashboard` | KPI, AI 인사이트, 검증·추적성 요약, Build Timeline |
+| **Elicitation** | `/requirements`, `/requirements/new` | 요구사항 CRUD, 베이스라인, 버전, 추적성 |
+| **Analysis** | `/analysis` | 중복/충돌/누락 findings, 재분석 실행 |
+| **Specification** | `/documents` | SRS / PRD / BRS 생성 |
+| **Validation** | `/validation` | 코드 연관도, Estimated Score, Traceability Matrix |
+| **Tracking** | `/build-history` | Jenkins 빌드 이력, 시뮬레이션, 진척 타임라인 |
+| **Settings** | `/settings` | 프로젝트, 베이스라인, 연동 설정 |
+
+---
+
+## 시연 흐름 (권장 순서)
+
+1. **Dashboard** 접속 → aggregate API로 전체 현황 확인
+2. **AI 분석 실행** → analysis + validation recompute
+3. **Analysis** → findings / summary 갱신 확인
+4. **Requirements** → 상세 패널 Traceability API 확인
+5. **Validation** → 재검증 후 점수·Missing Logic·AI 설명 확인
+6. **Build History** → 빌드 시뮬레이션 실행
+7. **Dashboard** → Build Timeline 반영 확인
+8. **새로고침** → JSON DB 저장 결과 유지 확인
+
+---
+
+## 프로젝트 구조
+
+### 루트
+
+| 파일 | 역할 |
+|------|------|
+| `dev-all.sh` | 프론트 + API 동시 실행 (권장) |
+| `dev.sh` | 프론트만 실행 |
+| `package.json` | 스크립트 및 의존성 |
+| `vite.config.ts` | Vite + `@/` alias + `/api` 프록시 |
+| `playwright.config.ts` | E2E 테스트 설정 |
+
+### `src/` — Frontend
+
+| 경로 | 역할 |
+|------|------|
+| `pages/` | 화면 단위 진입점 (Dashboard, Requirements, Analysis, Validation, Build History 등) |
+| `components/` | UI 컴포넌트 (dashboard, requirements, validation, build 등) |
+| `contexts/` | `AppContext` (프로젝트/세션), `RequirementsContext` (요구사항 CRUD·API 연동) |
+| `api/` | REST API 클라이언트 (`client.ts`, `types.ts`) |
+| `utils/` | API fallback helper, 대시보드 집계, validation/traceability 로더 |
+| `mocks/` | 오프라인 fallback 데이터 + 초기 seed 원본 |
+| `hooks/` | 필터, workflow 보조 훅 |
+| `layouts/` | AppLayout, Sidebar, TopHeader |
+| `config/` | 라우트별 lifecycle 설정 |
+
+#### 주요 Utils (API-first helper)
+
+| 파일 | 역할 |
+|------|------|
+| `dashboard.ts` | Dashboard aggregate → UI stats 변환 |
+| `analysisApi.ts` | Analysis findings/summary 로드 (API → mock fallback) |
+| `validationApi.ts` | Validation 상세 로드 |
+| `validationListApi.ts` | Validation 목록·대시보드 요약 로드 |
+| `traceabilityApi.ts` | Traceability matrix / requirement trace 로드 |
+| `documentsApi.ts` | 문서 카탈로그·생성 API 래퍼 |
+| `settingsApi.ts` | 프로젝트·연동 설정 로드 |
+| `buildHistory.ts` | 빌드 타임라인·필터 계산 |
+
+### `server/` — Backend
+
+| 경로 | 역할 |
+|------|------|
+| `index.ts` | Express 앱 부트, 라우터 마운트, seed 실행 |
+| `routes/` | REST API 라우트 |
+| `services/recompute.ts` | analysis / validation 재계산, traceability sync |
+| `services/jenkins.ts` | 빌드 처리, snapshot·점수 갱신, webhook 연동 |
+| `services/documents.ts` | 문서 생성·품질 점검 |
+| `lib/scoreEngine.ts` | implementation score 계산 |
+| `lib/snippets.ts` | validation match용 코드 스니펫 보강 |
+| `db/store.ts` | JSON DB load / persist / mutate |
+| `db/seed.ts` | 최초 실행 시 mock 데이터 시드 |
+| `db/reqflow.json` | 영속 데이터 저장소 |
+
+---
+
+## JSON DB (`server/db/reqflow.json`)
+
+| 컬렉션 | 용도 |
+|--------|------|
+| `projects` | 멀티 프로젝트, 활성 프로젝트 |
+| `users` | 담당자, 현재 사용자 |
+| `requirements` | 요구사항 본문, 상태, implementationScore |
+| `versions` | 요구사항 변경 이력 |
+| `baselines` | 베이스라인 스냅샷 |
+| `analysisFindings` | AI 분석 findings (recompute 시 갱신) |
+| `validationDetails` | 코드 매칭, missingLogic, aiExplanation |
+| `traceabilityRecords` | 요구사항-문서-코드-빌드-테스트 연결 |
+| `builds` | Jenkins 빌드 이력 |
+| `snapshots` | 빌드별 요구사항 진척 스냅샷 |
+| `documents` | 명세 문서 카탈로그 |
+| `generatedDocuments` | 생성된 SRS/PRD/BRS |
+| `webhookEvents` | GitHub/Jenkins webhook 이벤트 로그 |
+| `activeProjectId` / `currentUserId` | 세션 상태 |
+
+최초 API 서버 실행 시 `src/mocks/data/*`에서 시드되며, 이후 CRUD·recompute·build 결과는 JSON 파일에 저장됩니다.
+
+---
+
+## REST API
+
+프론트는 API 연결 시 아래 엔드포인트를 우선 사용하고, 실패 시 `src/mocks`로 fallback합니다.
+
+### Health / Meta
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/api/health` | 헬스체크 |
+| GET | `/api/openapi.json` | OpenAPI 3.0 스펙 |
+
+### Projects / Users / Session
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/api/projects` | 프로젝트 목록 |
+| GET | `/api/projects/:projectId` | 프로젝트 상세 |
+| GET | `/api/projects/active/current` | 현재 세션 (활성 프로젝트·사용자) |
+| PATCH | `/api/projects/active` | 활성 프로젝트 전환 |
+| GET | `/api/projects/:projectId/baselines` | 베이스라인 목록 |
+| GET | `/api/projects/:projectId/integrations` | Jenkins/Git/AI 연동 상태 |
+| GET | `/api/users` | 사용자 목록 |
+| GET | `/api/users/me` | 현재 사용자 |
+| PATCH | `/api/users/me` | 현재 사용자 전환 |
+
+### Requirements
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/api/requirements` | 요구사항 목록 |
+| GET | `/api/requirements/:id` | 요구사항 상세 |
+| POST | `/api/requirements` | 요구사항 생성 |
+| PATCH | `/api/requirements/:id` | 요구사항 수정 |
+| DELETE | `/api/requirements/:id` | 요구사항 삭제 |
+| GET | `/api/requirements/:id/versions` | 버전 이력 |
+| GET | `/api/requirements/:id/impact` | 변경 영향 분석 |
+| GET | `/api/versions` | 전체 버전 이력 |
+| GET | `/api/versions/requirements/:requirementId` | 요구사항별 버전 |
+
+### Dashboard (Aggregate)
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/api/dashboard/projects/:projectId` | 대시보드 집계 (KPI, coverage, AI insights, validation summary, traceability summary, build timeline) |
+
+### Analysis
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/api/analysis/projects/:projectId/findings` | 프로젝트 findings |
+| GET | `/api/analysis/projects/:projectId/summary` | 분석 요약 |
+| GET | `/api/analysis/findings/:id` | finding 상세 |
+| POST | `/api/analysis/projects/:projectId/recompute` | AI 분석 재계산 (findings + traceability sync) |
+
+### Validation
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/api/validation?projectId=` | 검증 목록 요약 |
+| GET | `/api/validation/:requirementId` | 검증 상세 + 스니펫 |
+| POST | `/api/validation/:requirementId/recompute` | 단일 요구사항 재검증 |
+| POST | `/api/validation/projects/:projectId/recompute` | 프로젝트 전체 재검증 |
+
+### Traceability
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/api/traceability/projects/:projectId/matrix` | 프로젝트 Traceability Matrix |
+| GET | `/api/traceability/requirements/:requirementId` | 요구사항별 추적성 상세 |
+
+### Builds / Webhooks
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/api/builds` | 빌드 이력 |
+| GET | `/api/builds/:buildNumber` | 빌드 상세 |
+| GET | `/api/builds/:buildNumber/snapshots` | 빌드 스냅샷 |
+| GET | `/api/builds/requirements/:requirementId/timeline` | 요구사항 진척 타임라인 |
+| POST | `/api/builds/simulate` | Jenkins 빌드 시뮬레이션 |
+| POST | `/api/webhooks/github` | GitHub push webhook |
+| POST | `/api/webhooks/jenkins` | Jenkins build webhook |
+| GET | `/api/webhooks/events` | webhook 이벤트 로그 |
+
+### Documents
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| GET | `/api/documents/projects/:projectId` | 문서 카탈로그·생성 이력 |
+| POST | `/api/documents/generate` | SRS/PRD/BRS 생성 |
+| POST | `/api/documents/:id/regenerate-section` | 섹션 재생성 |
+| GET | `/api/documents/:id/quality` | 문서 품질 점검 |
+| PATCH | `/api/documents/:id` | 섹션 수정 |
+
+---
+
+## Fallback Mock Data
+
+API 실패 또는 서버 오프라인 시 아래 helper가 mock 데이터로 대체합니다.
+
+| 화면 | Helper | Fallback 원천 |
+|------|--------|-----------------|
+| Dashboard | `dashboard.ts`, `analysisApi.ts`, `validationListApi.ts`, `traceabilityApi.ts` | `src/mocks/data/*` |
+| Analysis | `analysisApi.ts` | `analysisFindings.ts` |
+| Validation | `validationApi.ts`, `validationListApi.ts` | `validationDetails.ts` |
+| Traceability | `traceabilityApi.ts` | `traceability.ts` + mock selectors |
+| Build History | `getBuildHistoriesByProjectId()` | `buildHistories.ts` |
+| App / Requirements | `AppContext`, `RequirementsContext` | 초기 mock state |
+
+UI에서 데이터 출처를 구분할 수 있습니다.
+- Dashboard: `dashboard API 기반` / `fallback data`
+- Validation: `목록: API` / `상세: API` / `mock fallback`
+- Traceability: `traceability API 기반` / `mock fallback`
+
+---
+
+## npm Scripts
+
+| 스크립트 | 설명 |
+|----------|------|
+| `npm run dev:all` | 프론트 + API 동시 실행 (권장) |
+| `npm run dev` | Vite 프론트만 |
+| `npm run dev:api` | Express API만 (포트 3001) |
+| `npm run build` | TypeScript 빌드 + Vite 프로덕션 빌드 |
+| `npm run preview` | 빌드 결과 미리보기 |
+| `npm run test:e2e` | Playwright smoke 테스트 |
+| `npm run test:e2e:ui` | Playwright UI 모드 |
+
+---
+
+## E2E 테스트
+
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
+
+---
 
 ## 디자인 시스템
 
@@ -30,192 +376,55 @@ npm run dev
 | Text Primary | `#111827` |
 | Text Secondary | `#6B7280` |
 
-## 사용자 흐름 (Requirements Engineering Lifecycle)
+---
 
-```
-Elicitation → Analysis → Specification → Validation → Tracking
-```
+## 현재 한계 (PoC)
 
-| 단계 | 경로 | 역할 |
-|------|------|------|
-| **Tracking / Overview** | `/dashboard` | Requirements Engineering Dashboard — KPI, AI 인사이트, Progress Timeline |
-| **Elicitation** | `/requirements`, `/requirements/new` | Requirement Management — 등록, Version History, Baseline, Traceability |
-| **Analysis** | `/analysis` | AI Analysis — 중복/충돌/누락 탐지, 설명 가능한 AI 결과 |
-| **Specification** | `/documents` | Specification Generation — SRS / PRD / BRS 생성 |
-| **Validation** | `/validation` | Implementation Validation — Requirement-Code Similarity, Code Relationship, Traceability Matrix |
-| **Tracking** | `/build-history` | Jenkins Build History — 빌드별 Estimated Implementation Score 변화 |
-| **Settings** | `/settings` | Baseline, Traceability, 연동 설정 |
+- 실제 LLM / 임베딩 모델은 미연동 (규칙·heuristic 기반 recompute)
+- JSON DB 기반 (운영용 RDB/트랜잭션 없음)
+- 코드 스니펫은 저장소 추출이 아닌 PoC용 보강 데이터
+- webhook 인증·서명 검증 없음
+- 일부 UI 패널은 아직 mock 직접 참조가 남아 있음 (예: Requirements 우측 AI 분석 패널)
+- PDF/Word export, SSO, 실시간 알림 미구현
 
-## 프로젝트 구조 및 파일 역할
+---
 
-### 루트
-
-| 파일 | 역할 |
-|------|------|
-| `index.html` | 앱 엔트리, Pretendard 폰트, 페이지 타이틀 |
-| `package.json` | 의존성 및 스크립트 |
-| `tailwind.config.js` | 디자인 토큰 (색상, shadow 등) |
-| `vite.config.ts` | Vite + `@/` path alias |
-
-### `src/config/`
-
-| 파일 | 역할 |
-|------|------|
-| `workflow.ts` | 라우트별 Lifecycle 단계, 키워드, 다음 단계 링크 정의 |
-
-### `src/layouts/`
-
-| 파일 | 역할 |
-|------|------|
-| `AppLayout.tsx` | Sidebar + Header + Lifecycle Stepper + Outlet |
-| `Sidebar.tsx` | RE 단계별 그룹 네비게이션, 모바일 `MobileNav` |
-| `TopHeader.tsx` | 프로젝트 헤더, AI Analysis 바로가기 |
-
-### `src/components/`
-
-| 디렉터리 | 역할 |
-|----------|------|
-| `ui/` | Card, Badge, ProgressBar, StatusBadge, SectionHeader |
-| `layout/` | PageContainer, WorkflowBanner |
-| `lifecycle/` | LifecycleStepper (Elicitation → Tracking) |
-| `dashboard/` | RE Dashboard KPI, 차트, AI 인사이트, 빌드 타임라인 |
-| `requirements/` | 3열: 목록 / 상세+베이스라인+추적성 / AI 분석 패널 |
-| `analysis/` | AI 분석 요약, findings 테이블, 설명 패널 |
-| `documents/` | SRS/PRD/BRS 생성 사이드바, 미리보기, 품질 점검 |
-| `validation/` | 관계 그래프, Estimated Implementation Score, Traceability Matrix |
-| `build/` | Jenkins Build History 테이블, Progress Timeline 차트 |
-
-### `src/pages/`
-
-| 파일 | 역할 |
-|------|------|
-| `DashboardPage.tsx` | Requirements Engineering Dashboard (메인 화면) |
-| `RequirementsPage.tsx` | Requirement Management |
-| `NewRequirementPage.tsx` | 요구사항 등록 / AI 초안 |
-| `AnalysisPage.tsx` | AI Analysis |
-| `DocumentsPage.tsx` | Specification Generation |
-| `ValidationPage.tsx` | Implementation Validation |
-| `BuildHistoryPage.tsx` | Jenkins Build History |
-| `SettingsPage.tsx` | Baseline, Traceability, 연동 설정 |
-
-### `src/contexts/`
-
-| 파일 | 역할 |
-|------|------|
-| `RequirementsContext.tsx` | 요구사항 Mock CRUD 상태 (등록·수정·베이스라인 할당) |
-
-### `src/mocks/`
-
-| 파일/디렉터리 | 역할 |
-|---------------|------|
-| `index.ts` | Mock 데이터 re-export + selector 함수 (API 레이어 대체) |
-| `data/requirements.ts` | 10개 요구사항 (중복/충돌/누락 예시 포함) |
-| `data/requirementVersions.ts` | Version History |
-| `data/baselines.ts` | Baseline 스냅샷 |
-| `data/analysisFindings.ts` | AI 분석 findings |
-| `data/validationDetails.ts` | 요구사항-코드 매칭 상세 |
-| `data/similarityScores.ts` | Requirement-Code Similarity |
-| `data/codeFiles.ts` | 코드 파일 메타 |
-| `data/buildHistories.ts` | Jenkins Build History (#140–#149) |
-| `data/documents.ts` | 생성된 SRS/PRD/BRS |
-| `documentGenerator.ts` | 명세서 생성 Mock |
-| `aiGeneration.ts` | AI 초안 생성 Mock |
-
-### `src/utils/`
-
-| 파일 | 역할 |
-|------|------|
-| `dashboard.ts` | Dashboard KPI 집계 |
-| `analysis.ts` | 분석 요약 계산 |
-| `validation.ts` | 검증 점수·상태 계산 |
-| `buildHistory.ts` | 빌드 타임라인·필터 |
-| `traceability.ts` | 요구사항-문서-코드 추적성 해석 |
-| `requirement.ts` | 구현 점수 → 상태 라벨 변환 |
-
-### `src/hooks/`
-
-| 파일 | 역할 |
-|------|------|
-| `useWorkflow.ts` | 현재 경로의 WorkflowConfig |
-| `useRequirementFilters.ts` | 요구사항 필터 |
-| `useValidationFilters.ts` | 검증 페이지 필터 |
-
-## Mock 데이터 관계
-
-- `requirements.implementationScore` — 현재 Estimated Implementation Score (기준값)
-- `validationDetails` — 요구사항별 코드 매칭, AI 설명, 누락 항목
-- `similarityScores` — Requirement-Code Similarity 원시 점수
-- `buildHistories` — 빌드별 `requirementProgress` 및 요구사항 스냅샷 (시간에 따른 점수 변화)
-- `analysisFindings` — 중복/충돌/누락 (Review Needed 상태 트리거)
-- `baselines` + `requirementVersions` — Baseline / Version History
-
-점수는 모두 **추정치**이며 UI에서 `~XX%` 또는 `Estimated Implementation Score`로 표시됩니다.
-
-## Phase A — REST API (PoC)
-
-프론트 + API를 함께 실행:
-
-```bash
-./dev-all.sh
-# 또는
-npm run dev:all
-```
-
-API만 실행: `npm run dev:api` (포트 3001)  
-프론트만 실행: `npm run dev` (Vite proxy → `/api` → `:3001`)
-
-### 주요 엔드포인트
-
-| 메서드 | 경로 | 설명 |
-|--------|------|------|
-| GET | `/api/health` | 헬스체크 |
-| GET | `/api/requirements` | 요구사항 목록 |
-| GET | `/api/requirements/:id/impact` | 변경 영향 분석 |
-| GET | `/api/validation/:requirementId` | 검증 상세 + 코드 스니펫 |
-| GET | `/api/builds` | 빌드 이력 |
-| POST | `/api/builds/simulate` | Jenkins 빌드 시뮬레이션 |
-| POST | `/api/webhooks/github` | GitHub push webhook |
-| POST | `/api/webhooks/jenkins` | Jenkins build webhook |
-| GET | `/api/openapi.json` | OpenAPI 3.0 스펙 |
-| GET | `/api/projects` | 프로젝트 목록 (멀티 프로젝트) |
-| PATCH | `/api/projects/active` | 활성 프로젝트 전환 |
-| GET | `/api/analysis/projects/:id/findings` | AI 분석 결과 |
-| GET | `/api/documents/projects/:id` | 문서 카탈로그·생성 이력 |
-| POST | `/api/documents/generate` | SRS/PRD/BRS 생성 |
-| GET | `/api/users/me` | 현재 사용자 |
-| GET | `/api/versions` | 요구사항 버전 이력 전체 |
-| GET | `/api/validation?projectId=` | 검증 목록 요약 |
-
-프론트는 API 연결 시 위 엔드포인트를 우선 사용하고, 실패 시 `src/mocks`로 폴백합니다.
-
-### E2E 테스트
-
-```bash
-npx playwright install chromium
-npm run test:e2e
-```
-
-데이터는 `server/db/reqflow.json`에 저장됩니다 (최초 실행 시 mock 시드).
-
-## 남은 TODO (백엔드/프로덕션)
+## 로드맵
 
 - [x] Phase A REST API (`server/`, JSON DB)
+- [x] Dashboard aggregate API
+- [x] Analysis / Validation recompute API
+- [x] Traceability API
 - [x] Jenkins / GitHub webhook → 점수 재계산
-- [x] 코드 스니펫 패널 (line-level evidence)
-- [x] 변경 영향 분석 (`GET /api/requirements/:id/impact`)
-- [x] OpenAPI v1 (`GET /api/openapi.json`)
+- [x] 코드 스니펫 패널
+- [x] 변경 영향 분석
+- [x] OpenAPI v1
+- [x] 다중 프로젝트 / 워크스페이스
+- [x] E2E 테스트 (Playwright smoke)
 - [ ] 사용자 인증 (SSO/OAuth)
 - [ ] AI 임베딩·유사도 엔진 실연동
 - [ ] 명세서 PDF/Word export
 - [ ] 실시간 빌드 알림
-- [x] 다중 프로젝트/워크스페이스 (프로젝트 전환 UI + API)
-- [x] E2E 테스트 (Playwright smoke)
 - [ ] i18n (한/영 전환)
+
+---
 
 ## 기술 스택
 
-- React 18 + Vite + TypeScript
-- react-router-dom
-- Tailwind CSS
-- lucide-react
-- recharts
+**Frontend**
+- React 18, TypeScript, Vite
+- react-router-dom, Tailwind CSS
+- lucide-react, recharts
+
+**Backend**
+- Express 4, cors, tsx
+- JSON file persistence (`server/db/reqflow.json`)
+
+**Testing**
+- Playwright
+
+---
+
+## 라이선스
+
+Private — PoC / 데모용 프로젝트
