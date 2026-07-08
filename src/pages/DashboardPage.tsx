@@ -45,7 +45,10 @@ export function DashboardPage() {
   const workflow = useWorkflow()
   const { activeProjectId, currentProject } = useApp()
   const { requirements, apiConnected, refresh } = useRequirements()
-  const projectReqs = requirements.filter((r) => r.projectId === activeProjectId)
+  const projectReqs = useMemo(
+    () => requirements.filter((r) => r.projectId === activeProjectId),
+    [requirements, activeProjectId],
+  )
   const [buildSource, setBuildSource] = useState<'api' | 'fallback_mock'>('fallback_mock')
   const [analysisData, setAnalysisData] = useState<Awaited<ReturnType<typeof loadAnalysisData>>>({
     findings: [],

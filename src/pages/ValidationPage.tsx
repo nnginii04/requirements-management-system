@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { GitBranch, Sparkles, RefreshCw } from 'lucide-react'
 import { PageContainer } from '@/components/layout/PageContainer'
 import { Card } from '@/components/ui/Card'
@@ -28,7 +28,10 @@ export function ValidationPage() {
   const workflow = useWorkflow()
   const { requirements, apiConnected, refresh } = useRequirements()
   const { activeProjectId } = useApp()
-  const projectReqs = requirements.filter((r) => r.projectId === activeProjectId)
+  const projectReqs = useMemo(
+    () => requirements.filter((r) => r.projectId === activeProjectId),
+    [requirements, activeProjectId],
+  )
 
   const [listItems, setListItems] = useState<ValidationListEntry[]>([])
   const [listSource, setListSource] = useState<ValidationListSource | null>(null)
