@@ -5,7 +5,46 @@ AI 기반 요구사항 관리 · 구현 검증 · 추적성 관리 PoC
 React 프론트엔드와 **NestJS REST API**, **MySQL(Prisma) 영속화**를 결합한 **API-first Requirements Engineering Platform**입니다.  
 대시보드 집계, AI 분석 재계산, 구현 검증, Traceability Matrix, Jenkins 빌드 시뮬레이션까지 하나의 시연 흐름으로 연결됩니다.
 
-> 점수·분석·검증 결과는 모두 **Estimated Implementation Score / AI 추정치**이며, 실제 구현 완료를 보장하지 않습니다.
+> 점수·분석·검증 결과는 모두 **Estimated Implementation Score / AI 추정치(규칙 기반 heuristic)**이며, 실제 구현 완료를 보장하지 않습니다.
+
+<p>
+  <a href="https://github.com/nnginii04/requirements-management-system/actions/workflows/ci.yml"><img src="https://github.com/nnginii04/requirements-management-system/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/React-18-149ECA?logo=react&logoColor=white" alt="React 18">
+  <img src="https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs&logoColor=white" alt="NestJS 11">
+  <img src="https://img.shields.io/badge/Prisma-7-2D3748?logo=prisma&logoColor=white" alt="Prisma 7">
+  <img src="https://img.shields.io/badge/MySQL-8-4479A1?logo=mysql&logoColor=white" alt="MySQL 8">
+  <img src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5">
+</p>
+
+---
+
+## 미리보기
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/validation.png" alt="Validation"><br/><sub><b>Validation</b> — 코드 유사도·추정 구현 점수</sub></td>
+    <td width="50%"><img src="docs/screenshots/analysis.png" alt="Analysis"><br/><sub><b>AI Analysis</b> — 중복/충돌/누락 findings</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/build-history.png" alt="Build History"><br/><sub><b>Build History</b> — Jenkins 빌드·진척 타임라인</sub></td>
+    <td width="50%"><img src="docs/screenshots/requirements.png" alt="Requirements"><br/><sub><b>Requirements</b> — CRUD·버전·추적성</sub></td>
+  </tr>
+</table>
+
+---
+
+## 엔지니어링 하이라이트
+
+포트폴리오 관점에서 이 프로젝트가 보여주는 것:
+
+- **타입 안전 풀스택** — React + NestJS + Prisma를 하나의 TypeScript 모노레포로. 도메인 타입([`src/types/domain.ts`](src/types/domain.ts))을 프론트·백엔드가 공유.
+- **정통 NestJS 아키텍처** — 모듈 · 컨트롤러 · DI 프로바이더 · 전역 예외 필터 · 로깅 인터셉터 · `ValidationPipe` DTO 검증.
+- **관계형 DB 설계** — 14개 테이블 스키마, 버전 관리되는 Prisma 마이그레이션, 부팅 시 hydrate → 메모리 캐시 → write-back.
+- **테스트 · CI** — 핵심 점수/상태 heuristic에 대한 vitest 유닛 테스트 + Playwright E2E, GitHub Actions에서 typecheck · build · test · e2e(MySQL 서비스 컨테이너) 자동 실행.
+- **API 문서** — `@nestjs/swagger` 기반 라이브 문서 (`/api/docs`).
+- **명시적 기술 결정** — 데코레이터 메타데이터를 위해 실행기를 SWC로 선정하는 등, 선택의 근거를 코드·문서에 남김.
 
 ---
 
@@ -44,8 +83,8 @@ DATABASE_URL="mysql://root@localhost:3306/reqflow"
 스키마를 DB에 반영하고 Prisma 클라이언트를 생성합니다.
 
 ```bash
-npx prisma db push     # 테이블 생성 (prisma/schema.prisma → MySQL)
-npx prisma generate    # Prisma Client 생성 (generated/prisma)
+npx prisma migrate deploy   # 마이그레이션 적용 (테이블 생성)
+npx prisma generate         # Prisma Client 생성 (generated/prisma)
 ```
 
 > 최초 API 실행 시 테이블이 비어 있으면 `src/mocks/data/*`에서 자동 시드됩니다.
@@ -384,17 +423,36 @@ UI에서 데이터 출처를 구분할 수 있습니다.
 | `npm run dev` | Vite 프론트만 |
 | `npm run dev:api` | NestJS API만 (포트 3001) |
 | `npm run build` | TypeScript 빌드 + Vite 프로덕션 빌드 |
+| `npm run typecheck` | 프론트(`tsc -b`) + 서버(`tsc -p tsconfig.server.json`) 타입체크 |
 | `npm run preview` | 빌드 결과 미리보기 |
-| `npm run test:e2e` | Playwright smoke 테스트 |
+| `npm test` | vitest 유닛 테스트 (점수·상태 heuristic) |
+| `npm run test:watch` | vitest 워치 모드 |
+| `npm run test:e2e` | Playwright E2E (dev:all 자동 기동) |
 | `npm run test:e2e:ui` | Playwright UI 모드 |
 
 ---
 
-## E2E 테스트
+## 테스트
 
 ```bash
+npm test                       # 유닛 (vitest) — 핵심 heuristic 로직
 npx playwright install chromium
-npm run test:e2e
+npm run test:e2e               # E2E (Playwright) — 실제 화면 렌더링
+```
+
+- **유닛**: [`src/utils/*.test.ts`](src/utils), [`server/lib/scoreEngine.test.ts`](server/lib/scoreEngine.test.ts) — 유사도 평균, 60/40 점수 블렌딩, 상태 임계값 등.
+- **E2E**: [`e2e/smoke.spec.ts`](e2e/smoke.spec.ts) — 주요 페이지 렌더링 + API 헬스체크.
+- **CI**: 푸시·PR마다 [GitHub Actions](.github/workflows/ci.yml)에서 typecheck · build · unit · e2e(MySQL 서비스 컨테이너) 자동 실행.
+
+---
+
+## API 문서 (Swagger)
+
+API 서버 실행 후 브라우저에서 라이브 문서를 확인할 수 있습니다.
+
+```
+http://localhost:3001/api/docs        # Swagger UI
+http://localhost:3001/api/docs-json   # OpenAPI JSON
 ```
 
 ---
@@ -434,8 +492,11 @@ npm run test:e2e
 - [x] 변경 영향 분석
 - [x] OpenAPI v1
 - [x] 다중 프로젝트 / 워크스페이스
-- [x] E2E 테스트 (Playwright smoke)
-- [ ] 사용자 인증 (SSO/OAuth)
+- [x] E2E 테스트 (Playwright) + 유닛 테스트 (vitest)
+- [x] CI 파이프라인 (GitHub Actions)
+- [x] Express → NestJS 마이그레이션 (DI · DTO 검증 · Swagger)
+- [x] JSON 파일 → MySQL/Prisma (버전 관리 마이그레이션)
+- [ ] 사용자 인증 (JWT/SSO)
 - [ ] AI 임베딩·유사도 엔진 실연동
 - [ ] 명세서 PDF/Word export
 - [ ] 실시간 빌드 알림
@@ -451,11 +512,12 @@ npm run test:e2e
 - lucide-react, recharts
 
 **Backend**
-- NestJS 11 (platform-express), tsx (ESM)
-- MySQL + Prisma 7 (mariadb driver adapter), 부팅 시 hydrate → 메모리 캐시 → write-back
+- NestJS 11 (platform-express, ESM) — 실행기 SWC(`@swc-node/register`)로 데코레이터 메타데이터·타입 DI 지원
+- MySQL 8 + Prisma 7 (mariadb driver adapter), 버전 관리 마이그레이션, 부팅 시 hydrate → 메모리 캐시 → write-back
+- class-validator DTO 검증, 전역 예외 필터·로깅 인터셉터, `@nestjs/config` 환경 검증, `@nestjs/swagger`
 
-**Testing**
-- Playwright
+**Testing / CI**
+- vitest (유닛), Playwright (E2E), GitHub Actions (typecheck · build · test · e2e)
 
 ---
 
