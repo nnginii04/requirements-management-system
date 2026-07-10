@@ -2,7 +2,7 @@ import { Body, Controller, Get, HttpCode, Param, Patch, Post } from '@nestjs/com
 import { StoreService } from '../core/store.service.js'
 import { DocumentsService } from '../core/documents.service.js'
 import { apiError } from '../core/http-error.js'
-import type { DocumentTabType } from '../../src/mocks/documentGenerator.js'
+import { GenerateDocumentDto } from './dto/document.dto.js'
 
 @Controller('documents')
 export class DocumentsController {
@@ -23,16 +23,7 @@ export class DocumentsController {
   }
 
   @Post('generate')
-  async generate(
-    @Body()
-    body: {
-      type: DocumentTabType
-      projectId: string
-      requirementIds: string[]
-      includeTraceability?: boolean
-      includeNfr?: boolean
-    },
-  ) {
+  async generate(@Body() body: GenerateDocumentDto) {
     const state = this.store.loadDb()
     const requirements = state.requirements.filter(
       (r) => r.projectId === body.projectId && body.requirementIds.includes(r.id),

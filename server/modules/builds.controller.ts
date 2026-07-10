@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post } from '@nestjs/common'
 import { StoreService } from '../core/store.service.js'
 import { JenkinsService } from '../core/jenkins.service.js'
 import { apiError } from '../core/http-error.js'
+import { SimulateBuildDto } from './dto/build.dto.js'
 
 @Controller('builds')
 export class BuildsController {
@@ -42,10 +43,7 @@ export class BuildsController {
 
   /** Simulate a Jenkins build for local testing. */
   @Post('simulate')
-  simulate(
-    @Body()
-    body: { commitMessage?: string; changedFiles?: string[]; status?: 'success' | 'failure' },
-  ) {
+  simulate(@Body() body: SimulateBuildDto) {
     const result = this.jenkins.processBuild({
       commitMessage: body.commitMessage ?? 'feat: REQ-001 auth improvements',
       changedFiles: body.changedFiles ?? ['src/auth/AuthController.java'],

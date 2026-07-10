@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common'
 import { StoreService } from '../core/store.service.js'
 import { apiError } from '../core/http-error.js'
+import { CreateRequirementDto, UpdateRequirementDto } from './dto/requirement.dto.js'
 import type { Requirement, RequirementWorkflowStatus } from '../../src/types/domain.js'
 
 @Controller('requirements')
@@ -66,7 +67,7 @@ export class RequirementsController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() patch: Partial<Requirement>) {
+  update(@Param('id') id: string, @Body() patch: UpdateRequirementDto) {
     let updated: Requirement | undefined
 
     this.store.mutate((state) => {
@@ -100,7 +101,7 @@ export class RequirementsController {
   }
 
   @Post()
-  create(@Body() body: Partial<Requirement>) {
+  create(@Body() body: CreateRequirementDto) {
     const state = this.store.loadDb()
 
     const maxNum = state.requirements.reduce((max, r) => {
