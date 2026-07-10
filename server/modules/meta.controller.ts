@@ -2,9 +2,11 @@ import { Controller, Get } from '@nestjs/common'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { Public } from '../auth/public.decorator.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
+@Public()
 @Controller()
 export class MetaController {
   @Get('health')

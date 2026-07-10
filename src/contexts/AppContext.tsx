@@ -17,6 +17,7 @@ import {
   setActiveProject as setActiveProjectApi,
   setCurrentUser as setCurrentUserApi,
 } from '@/api/client'
+import { isAuthenticated } from '@/api/auth'
 import type { ProjectView } from '@/api/types'
 import { projects as mockProjects, currentProjectId as mockProjectId } from '@/mocks/data/projects'
 import { users as mockUsers, currentUser as mockCurrentUser } from '@/mocks/data/users'
@@ -59,6 +60,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
+    // Skip authenticated calls when there is no session (e.g. on the login page).
+    if (!isAuthenticated()) {
+      setApiConnected(false)
+      setProjects(enrichMockProjects())
+      setLoading(false)
+      return
+    }
     const ok = await checkHealth()
     setApiConnected(ok)
     if (!ok) {

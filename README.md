@@ -24,6 +24,13 @@ React 프론트엔드와 **NestJS REST API**, **MySQL(Prisma) 영속화**를 결
 
 <table>
   <tr>
+    <td width="50%"><img src="docs/screenshots/login.png" alt="Login"><br/><sub><b>Login</b> — JWT 인증 · 데모 원클릭 로그인</sub></td>
+    <td width="50%"><img src="docs/screenshots/documents.png" alt="Documents"><br/><sub><b>Documents</b> — SRS/PRD/BRS 생성·품질 점검</sub></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
     <td width="50%"><img src="docs/screenshots/validation.png" alt="Validation"><br/><sub><b>Validation</b> — 코드 유사도·추정 구현 점수</sub></td>
     <td width="50%"><img src="docs/screenshots/analysis.png" alt="Analysis"><br/><sub><b>AI Analysis</b> — 중복/충돌/누락 findings</sub></td>
   </tr>
@@ -41,6 +48,7 @@ React 프론트엔드와 **NestJS REST API**, **MySQL(Prisma) 영속화**를 결
 
 - **타입 안전 풀스택** — React + NestJS + Prisma를 하나의 TypeScript 모노레포로. 도메인 타입([`src/types/domain.ts`](src/types/domain.ts))을 프론트·백엔드가 공유.
 - **정통 NestJS 아키텍처** — 모듈 · 컨트롤러 · DI 프로바이더 · 전역 예외 필터 · 로깅 인터셉터 · `ValidationPipe` DTO 검증.
+- **JWT 인증** — 로그인 · 전역 `JwtAuthGuard`(+`@Public()`) · bcrypt 해시 자격증명 · 프론트 라우트 보호. 데모 계정으로 즉시 체험 가능.
 - **관계형 DB 설계** — 14개 테이블 스키마, 버전 관리되는 Prisma 마이그레이션, 부팅 시 hydrate → 메모리 캐시 → write-back.
 - **테스트 · CI** — 핵심 점수/상태 heuristic에 대한 vitest 유닛 테스트 + Playwright E2E, GitHub Actions에서 typecheck · build · test · e2e(MySQL 서비스 컨테이너) 자동 실행.
 - **API 문서** — `@nestjs/swagger` 기반 라이브 문서 (`/api/docs`).
@@ -59,6 +67,7 @@ React 프론트엔드와 **NestJS REST API**, **MySQL(Prisma) 영속화**를 결
 | **Build History** | Jenkins 빌드 이력, 시뮬레이션, 요구사항별 진척 스냅샷 |
 | **Documents** | SRS / PRD / BRS 생성 및 품질 점검 |
 | **Integrations** | GitHub / Jenkins webhook PoC, 빌드 기반 점수 갱신 |
+| **Auth** | JWT 로그인, 라우트 보호, bcrypt 자격증명, 데모 계정 원클릭 로그인 |
 
 ---
 
@@ -110,6 +119,8 @@ npm run dev:all
 | API | http://localhost:3001 |
 | Health check | http://localhost:3001/api/health |
 | OpenAPI | http://localhost:3001/api/openapi.json |
+
+> **로그인**: 첫 화면에서 **"데모 계정으로 바로 시작"** 버튼을 누르면 즉시 입장합니다. (계정: `yejin.jung@company.com` / `demo1234`)
 
 ### 3. 따로 실행
 
@@ -304,12 +315,17 @@ Elicitation → Analysis → Specification → Validation → Tracking
 
 프론트는 API 연결 시 아래 엔드포인트를 우선 사용하고, 실패 시 `src/mocks`로 fallback합니다.
 
-### Health / Meta
+### Health / Meta / Auth
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| GET | `/api/health` | 헬스체크 |
-| GET | `/api/openapi.json` | OpenAPI 3.0 스펙 |
+| GET | `/api/health` | 헬스체크 (public) |
+| GET | `/api/openapi.json` | OpenAPI 3.0 스펙 (public) |
+| GET | `/api/docs` | Swagger UI |
+| POST | `/api/auth/login` | 로그인 → JWT 발급 (public) |
+| GET | `/api/auth/me` | 현재 인증 사용자 |
+
+> `/api/health`·`/api/openapi.json`·`/api/auth/login`을 제외한 모든 엔드포인트는 `Authorization: Bearer <token>`이 필요합니다.
 
 ### Projects / Users / Session
 
@@ -496,7 +512,8 @@ http://localhost:3001/api/docs-json   # OpenAPI JSON
 - [x] CI 파이프라인 (GitHub Actions)
 - [x] Express → NestJS 마이그레이션 (DI · DTO 검증 · Swagger)
 - [x] JSON 파일 → MySQL/Prisma (버전 관리 마이그레이션)
-- [ ] 사용자 인증 (JWT/SSO)
+- [x] JWT 인증 (로그인 · 가드 · bcrypt · 라우트 보호)
+- [ ] SSO / OAuth 연동
 - [ ] AI 임베딩·유사도 엔진 실연동
 - [ ] 명세서 PDF/Word export
 - [ ] 실시간 빌드 알림

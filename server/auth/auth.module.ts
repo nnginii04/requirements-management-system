@@ -1,0 +1,20 @@
+import { Module } from '@nestjs/common'
+import { APP_GUARD } from '@nestjs/core'
+import { JwtModule } from '@nestjs/jwt'
+import { CoreModule } from '../core/core.module.js'
+import { AuthController } from './auth.controller.js'
+import { AuthService } from './auth.service.js'
+import { JwtAuthGuard } from './jwt-auth.guard.js'
+
+@Module({
+  imports: [
+    CoreModule,
+    JwtModule.register({
+      secret: process.env.JWT_SECRET ?? 'reqflow-dev-secret-change-in-prod',
+      signOptions: { expiresIn: '12h' },
+    }),
+  ],
+  controllers: [AuthController],
+  providers: [AuthService, { provide: APP_GUARD, useClass: JwtAuthGuard }],
+})
+export class AuthModule {}

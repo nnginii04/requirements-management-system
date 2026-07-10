@@ -1,6 +1,17 @@
 import { test, expect } from '@playwright/test'
 
+const DEMO = { email: 'yejin.jung@company.com', password: 'demo1234' }
+
 test.describe('ReqFlow smoke', () => {
+  // Authenticate by seeding a valid token before the app loads.
+  test.beforeEach(async ({ page, request }) => {
+    const res = await request.post('http://localhost:3001/api/auth/login', { data: DEMO })
+    const { data } = await res.json()
+    await page.addInitScript((token) => {
+      window.localStorage.setItem('reqflow_token', token)
+    }, data.token)
+  })
+
   test('dashboard loads with project title', async ({ page }) => {
     await page.goto('/dashboard')
     await expect(
@@ -29,5 +40,20 @@ test.describe('ReqFlow smoke', () => {
     expect(res.ok()).toBeTruthy()
     const body = await res.json()
     expect(body.status).toBe('ok')
+  })
+})
+
+test.describe('auth', () => {
+  test('unauthenticated visit redirects to login', async ({ page }) => {
+    await page.goto('/dashboard')
+    await expect(page).toHaveURL(/\/login$/)
+  })
+
+  test('demo login opens the dashboard', async ({ page }) => {
+    await page.goto('/login')
+    await page.getByRole('button', { name: '데모 계정으로 바로 시작' }).click()
+    await expect(
+      page.getByRole('main').getByRole('heading', { name: '엔터프라이즈 사용자 포털' }),
+    ).toBeVisible()
   })
 })
