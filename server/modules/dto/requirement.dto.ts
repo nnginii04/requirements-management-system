@@ -82,9 +82,4 @@ export class CreateRequirementDto {
   relatedFeature?: string
 }
 
-export class UpdateRequirementDto extends PartialType(CreateRequirementDto) {
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  version?: string
-}
+export class UpdateRequirementDto extends PartialType(CreateRequirementDto) {}

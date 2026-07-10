@@ -70,13 +70,19 @@ export class RequirementsController {
   update(@Param('id') id: string, @Body() patch: UpdateRequirementDto) {
     let updated: Requirement | undefined
 
+    // Only merge fields the client actually sent — DTO instances can carry
+    // `undefined` own-properties that would otherwise clobber existing values.
+    const definedPatch = Object.fromEntries(
+      Object.entries(patch).filter(([, value]) => value !== undefined),
+    ) as Partial<Requirement>
+
     this.store.mutate((state) => {
       const idx = state.requirements.findIndex((r) => r.id === id)
       if (idx === -1) return
       const previous = state.requirements[idx]
       updated = {
         ...previous,
-        ...patch,
+        ...definedPatch,
         id: previous.id,
         updatedAt: new Date().toISOString(),
       }

@@ -260,6 +260,11 @@ export async function hydrate(): Promise<DbState> {
     currentUserId: appState?.currentUserId ?? 'user-001',
   }
 
+  // If the DB was already initialized, use it as the diff baseline. On a fresh
+  // DB (no app_state row) leave the baseline unset so the first flush does a
+  // full insert.
+  if (appState) snapshotPersisted(cache)
+
   return cache
 }
 
@@ -274,15 +279,80 @@ export function loadDb(): DbState {
   return cache
 }
 
+// Row mappers: domain object → DB column shape. Shared by full-rewrite and diff.
+const requirementRow = (r: Requirement) => ({
+  id: r.id,
+  projectId: r.projectId,
+  title: r.title,
+  description: r.description,
+  type: r.type,
+  priority: r.priority,
+  status: r.status,
+  owner: r.owner,
+  createdAt: r.createdAt,
+  updatedAt: r.updatedAt,
+  dueDate: r.dueDate,
+  version: r.version,
+  baseline: r.baseline ?? null,
+  acceptanceCriteria: r.acceptanceCriteria,
+  implementationScore: r.implementationScore,
+  traceabilityLinks: r.traceabilityLinks,
+  source: r.source ?? null,
+  tags: r.tags ?? null,
+  relatedFeature: r.relatedFeature ?? null,
+})
+const analysisFindingRow = (f: AnalysisFinding) => ({
+  id: f.id,
+  type: f.type,
+  requirementIds: f.requirementIds,
+  description: f.description,
+  severity: f.severity,
+  confidence: f.confidence,
+  suggestedAction: f.suggestedAction,
+  aiExplanation: f.aiExplanation ?? null,
+  similarityScore: f.similarityScore ?? null,
+})
+const snapshotRow = (s: RequirementBuildSnapshot) => ({
+  buildNumber: s.buildNumber,
+  requirementId: s.requirementId,
+  progress: s.progress,
+  createdAt: s.createdAt,
+})
+const generatedDocRow = (g: GeneratedDocumentRecord) => ({ id: g.id, projectId: g.projectId, payload: g })
+const webhookRow = (w: WebhookEvent) => ({
+  id: w.id,
+  source: w.source,
+  payload: w.payload,
+  createdAt: w.createdAt,
+  summary: w.summary,
+})
+
+/** Snapshot the persisted state so the next flush can diff against it. */
+let lastPersisted: DbState | null = null
+
+function snapshotPersisted(state: DbState): void {
+  lastPersisted = structuredClone(state)
+}
+
+function diffByKey<T>(prev: T[], next: T[], key: (item: T) => string) {
+  const prevMap = new Map(prev.map((x) => [key(x), x]))
+  const nextMap = new Map(next.map((x) => [key(x), x]))
+  const upserts: T[] = []
+  const removedKeys: string[] = []
+  for (const [k, v] of nextMap) {
+    const p = prevMap.get(k)
+    if (!p || JSON.stringify(p) !== JSON.stringify(v)) upserts.push(v)
+  }
+  for (const k of prevMap.keys()) if (!nextMap.has(k)) removedKeys.push(k)
+  return { upserts, removedKeys }
+}
+
 /**
- * Full-state write-back to MySQL. Wipes and re-inserts every table inside a
- * transaction. Simple and always-consistent; fine at PoC scale (hundreds of
- * rows). Writes are serialized through writeChain so concurrent mutations never
- * race, and each flush writes the latest cache snapshot.
+ * Full wipe-and-reinsert. Used only to establish the first baseline (before any
+ * diff snapshot exists); steady-state writes go through the diff path below.
  */
-async function flushToDb(state: DbState): Promise<void> {
+async function fullRewrite(state: DbState): Promise<void> {
   await prisma.$transaction([
-    // delete children before parents to satisfy FK constraints
     prisma.appState.deleteMany(),
     prisma.webhookEvent.deleteMany(),
     prisma.traceabilityRecord.deleteMany(),
@@ -298,79 +368,155 @@ async function flushToDb(state: DbState): Promise<void> {
     prisma.user.deleteMany(),
     prisma.project.deleteMany(),
 
-    // re-insert parents before children
     prisma.project.createMany({ data: state.projects as any }),
     prisma.user.createMany({ data: state.users as any }),
-    prisma.requirement.createMany({
-      data: state.requirements.map((r) => ({
-        id: r.id,
-        projectId: r.projectId,
-        title: r.title,
-        description: r.description,
-        type: r.type,
-        priority: r.priority,
-        status: r.status,
-        owner: r.owner,
-        createdAt: r.createdAt,
-        updatedAt: r.updatedAt,
-        dueDate: r.dueDate,
-        version: r.version,
-        baseline: r.baseline ?? null,
-        acceptanceCriteria: r.acceptanceCriteria,
-        implementationScore: r.implementationScore,
-        traceabilityLinks: r.traceabilityLinks,
-        source: r.source ?? null,
-        tags: r.tags ?? null,
-        relatedFeature: r.relatedFeature ?? null,
-      })) as any,
-    }),
+    prisma.requirement.createMany({ data: state.requirements.map(requirementRow) as any }),
     prisma.requirementVersion.createMany({ data: state.versions as any }),
     prisma.buildHistory.createMany({ data: state.builds as any }),
     prisma.document.createMany({ data: state.documents as any }),
     prisma.baseline.createMany({ data: state.baselines as any }),
-    prisma.analysisFinding.createMany({
-      data: state.analysisFindings.map((f) => ({
-        id: f.id,
-        type: f.type,
-        requirementIds: f.requirementIds,
-        description: f.description,
-        severity: f.severity,
-        confidence: f.confidence,
-        suggestedAction: f.suggestedAction,
-        aiExplanation: f.aiExplanation ?? null,
-        similarityScore: f.similarityScore ?? null,
-      })) as any,
-    }),
-    prisma.requirementBuildSnapshot.createMany({
-      data: state.snapshots.map((s) => ({
-        buildNumber: s.buildNumber,
-        requirementId: s.requirementId,
-        progress: s.progress,
-        createdAt: s.createdAt,
-      })) as any,
-    }),
+    prisma.analysisFinding.createMany({ data: state.analysisFindings.map(analysisFindingRow) as any }),
+    prisma.requirementBuildSnapshot.createMany({ data: state.snapshots.map(snapshotRow) as any }),
     prisma.validationDetail.createMany({ data: state.validationDetails as any }),
-    prisma.generatedDocument.createMany({
-      data: state.generatedDocuments.map((g) => ({
-        id: g.id,
-        projectId: g.projectId,
-        payload: g,
-      })) as any,
-    }),
+    prisma.generatedDocument.createMany({ data: state.generatedDocuments.map(generatedDocRow) as any }),
     prisma.traceabilityRecord.createMany({ data: state.traceabilityRecords as any }),
-    prisma.webhookEvent.createMany({
-      data: state.webhookEvents.map((w) => ({
-        id: w.id,
-        source: w.source,
-        payload: w.payload,
-        createdAt: w.createdAt,
-        summary: w.summary,
-      })) as any,
-    }),
+    prisma.webhookEvent.createMany({ data: state.webhookEvents.map(webhookRow) as any }),
     prisma.appState.create({
       data: { id: 1, activeProjectId: state.activeProjectId, currentUserId: state.currentUserId },
     }),
   ])
+}
+
+/**
+ * Incremental write-back: persist only the rows that actually changed since the
+ * last flush. Deletes run children-first and upserts parents-first to satisfy
+ * foreign keys. Falls back to a full rewrite when no baseline snapshot exists.
+ */
+async function flushToDb(state: DbState): Promise<void> {
+  if (!lastPersisted) {
+    await fullRewrite(state)
+    snapshotPersisted(state)
+    return
+  }
+
+  const prev = lastPersisted
+  const byId = <T extends { id: string }>(p: T[], n: T[]) => diffByKey(p, n, (x) => x.id)
+  const byReqId = <T extends { requirementId: string }>(p: T[], n: T[]) =>
+    diffByKey(p, n, (x) => x.requirementId)
+  const snapKey = (s: RequirementBuildSnapshot) => `${s.buildNumber}::${s.requirementId}`
+
+  const projects = byId(prev.projects, state.projects)
+  const users = byId(prev.users, state.users)
+  const requirements = byId(prev.requirements, state.requirements)
+  const versions = byId(prev.versions, state.versions)
+  const builds = byId(prev.builds, state.builds)
+  const documents = byId(prev.documents, state.documents)
+  const baselines = byId(prev.baselines, state.baselines)
+  const findings = byId(prev.analysisFindings, state.analysisFindings)
+  const generated = byId(prev.generatedDocuments, state.generatedDocuments)
+  const webhooks = byId(prev.webhookEvents, state.webhookEvents)
+  const validations = byReqId(prev.validationDetails, state.validationDetails)
+  const traces = byReqId(prev.traceabilityRecords, state.traceabilityRecords)
+  const snapshots = diffByKey(prev.snapshots, state.snapshots, snapKey)
+
+  const ops: any[] = []
+  const del = (removed: string[], run: (ids: string[]) => any) => {
+    if (removed.length) ops.push(run(removed))
+  }
+
+  // 1) Deletes, children before parents.
+  del(webhooks.removedKeys, (ids) => prisma.webhookEvent.deleteMany({ where: { id: { in: ids } } }))
+  del(traces.removedKeys, (ids) =>
+    prisma.traceabilityRecord.deleteMany({ where: { requirementId: { in: ids } } }),
+  )
+  del(generated.removedKeys, (ids) => prisma.generatedDocument.deleteMany({ where: { id: { in: ids } } }))
+  del(validations.removedKeys, (ids) =>
+    prisma.validationDetail.deleteMany({ where: { requirementId: { in: ids } } }),
+  )
+  if (snapshots.removedKeys.length) {
+    ops.push(
+      prisma.requirementBuildSnapshot.deleteMany({
+        where: {
+          OR: snapshots.removedKeys.map((k) => {
+            const [buildNumber, requirementId] = k.split('::')
+            return { buildNumber: Number(buildNumber), requirementId }
+          }),
+        },
+      }),
+    )
+  }
+  del(findings.removedKeys, (ids) => prisma.analysisFinding.deleteMany({ where: { id: { in: ids } } }))
+  del(baselines.removedKeys, (ids) => prisma.baseline.deleteMany({ where: { id: { in: ids } } }))
+  del(documents.removedKeys, (ids) => prisma.document.deleteMany({ where: { id: { in: ids } } }))
+  del(builds.removedKeys, (ids) => prisma.buildHistory.deleteMany({ where: { id: { in: ids } } }))
+  del(versions.removedKeys, (ids) => prisma.requirementVersion.deleteMany({ where: { id: { in: ids } } }))
+  del(requirements.removedKeys, (ids) => prisma.requirement.deleteMany({ where: { id: { in: ids } } }))
+  del(users.removedKeys, (ids) => prisma.user.deleteMany({ where: { id: { in: ids } } }))
+  del(projects.removedKeys, (ids) => prisma.project.deleteMany({ where: { id: { in: ids } } }))
+
+  // 2) Upserts, parents before children.
+  for (const p of projects.upserts) ops.push(prisma.project.upsert({ where: { id: p.id }, create: p as any, update: p as any }))
+  for (const u of users.upserts) ops.push(prisma.user.upsert({ where: { id: u.id }, create: u as any, update: u as any }))
+  for (const r of requirements.upserts) {
+    const row = requirementRow(r)
+    ops.push(prisma.requirement.upsert({ where: { id: r.id }, create: row as any, update: row as any }))
+  }
+  for (const v of versions.upserts) ops.push(prisma.requirementVersion.upsert({ where: { id: v.id }, create: v as any, update: v as any }))
+  for (const b of builds.upserts) ops.push(prisma.buildHistory.upsert({ where: { id: b.id }, create: b as any, update: b as any }))
+  for (const d of documents.upserts) ops.push(prisma.document.upsert({ where: { id: d.id }, create: d as any, update: d as any }))
+  for (const b of baselines.upserts) ops.push(prisma.baseline.upsert({ where: { id: b.id }, create: b as any, update: b as any }))
+  for (const f of findings.upserts) {
+    const row = analysisFindingRow(f)
+    ops.push(prisma.analysisFinding.upsert({ where: { id: f.id }, create: row as any, update: row as any }))
+  }
+  for (const d of validations.upserts) {
+    ops.push(
+      prisma.validationDetail.upsert({
+        where: { requirementId: d.requirementId },
+        create: d as any,
+        update: d as any,
+      }),
+    )
+  }
+  for (const t of traces.upserts) {
+    ops.push(
+      prisma.traceabilityRecord.upsert({
+        where: { requirementId: t.requirementId },
+        create: t as any,
+        update: t as any,
+      }),
+    )
+  }
+  for (const g of generated.upserts) {
+    const row = generatedDocRow(g)
+    ops.push(prisma.generatedDocument.upsert({ where: { id: g.id }, create: row as any, update: row as any }))
+  }
+  for (const w of webhooks.upserts) {
+    const row = webhookRow(w)
+    ops.push(prisma.webhookEvent.upsert({ where: { id: w.id }, create: row as any, update: row as any }))
+  }
+  // Snapshots are append-only; insert the newly-added ones.
+  if (snapshots.upserts.length) {
+    ops.push(prisma.requirementBuildSnapshot.createMany({ data: snapshots.upserts.map(snapshotRow) as any }))
+  }
+  // Session singleton.
+  if (
+    prev.activeProjectId !== state.activeProjectId ||
+    prev.currentUserId !== state.currentUserId
+  ) {
+    ops.push(
+      prisma.appState.upsert({
+        where: { id: 1 },
+        create: { id: 1, activeProjectId: state.activeProjectId, currentUserId: state.currentUserId },
+        update: { activeProjectId: state.activeProjectId, currentUserId: state.currentUserId },
+      }),
+    )
+  }
+
+  if (ops.length > 0) {
+    await prisma.$transaction(ops)
+  }
+  snapshotPersisted(state)
 }
 
 let writeChain: Promise<void> = Promise.resolve()
