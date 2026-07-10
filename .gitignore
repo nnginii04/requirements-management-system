@@ -8,3 +8,6 @@ tsconfig.tsbuildinfo
 server/db/reqflow.json
 
 /generated/prisma
+
+test-results/
+playwright-report/
