@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common'
+import { ConfigModule } from '@nestjs/config'
 import { CoreModule } from './core/core.module.js'
+import { validateEnv } from './core/env.validation.js'
 import { MetaController } from './modules/meta.controller.js'
 import { RequirementsController } from './modules/requirements.controller.js'
 import { VersionsController } from './modules/versions.controller.js'
@@ -14,7 +16,10 @@ import { DocumentsController } from './modules/documents.controller.js'
 import { WebhooksController } from './modules/webhooks.controller.js'
 
 @Module({
-  imports: [CoreModule],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+    CoreModule,
+  ],
   controllers: [
     MetaController,
     RequirementsController,
