@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Inject, Post, Res } from '@nestjs/common'
+import { Body, Controller, Get, Headers, Post, Res } from '@nestjs/common'
 import { StoreService } from '../core/store.service.js'
 import { JenkinsService } from '../core/jenkins.service.js'
 import { apiError } from '../core/http-error.js'
@@ -15,8 +15,8 @@ interface HttpResponse {
 @Controller('webhooks')
 export class WebhooksController {
   constructor(
-    @Inject(StoreService) private readonly store: StoreService,
-    @Inject(JenkinsService) private readonly jenkins: JenkinsService,
+    private readonly store: StoreService,
+    private readonly jenkins: JenkinsService,
   ) {}
 
   // Uses @Res because the response status is conditional (200 when skipped,

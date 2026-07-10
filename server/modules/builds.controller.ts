@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Inject, Param, Post } from '@nestjs/common'
+import { Body, Controller, Get, Param, Post } from '@nestjs/common'
 import { StoreService } from '../core/store.service.js'
 import { JenkinsService } from '../core/jenkins.service.js'
 import { apiError } from '../core/http-error.js'
@@ -6,8 +6,8 @@ import { apiError } from '../core/http-error.js'
 @Controller('builds')
 export class BuildsController {
   constructor(
-    @Inject(StoreService) private readonly store: StoreService,
-    @Inject(JenkinsService) private readonly jenkins: JenkinsService,
+    private readonly store: StoreService,
+    private readonly jenkins: JenkinsService,
   ) {}
 
   @Get()

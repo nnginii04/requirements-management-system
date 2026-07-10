@@ -1,9 +1,9 @@
-import { Controller, Get, Inject, Param } from '@nestjs/common'
+import { Controller, Get, Param } from '@nestjs/common'
 import { StoreService } from '../core/store.service.js'
 
 @Controller('versions')
 export class VersionsController {
-  constructor(@Inject(StoreService) private readonly store: StoreService) {}
+  constructor(private readonly store: StoreService) {}
 
   @Get()
   list() {

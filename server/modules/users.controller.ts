@@ -1,10 +1,10 @@
-import { Body, Controller, Get, Inject, Param, Patch } from '@nestjs/common'
+import { Body, Controller, Get, Param, Patch } from '@nestjs/common'
 import { StoreService } from '../core/store.service.js'
 import { apiError } from '../core/http-error.js'
 
 @Controller('users')
 export class UsersController {
-  constructor(@Inject(StoreService) private readonly store: StoreService) {}
+  constructor(private readonly store: StoreService) {}
 
   @Get()
   list() {

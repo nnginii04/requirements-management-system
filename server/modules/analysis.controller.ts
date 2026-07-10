@@ -1,4 +1,4 @@
-import { Controller, Get, HttpCode, Inject, Param, Post } from '@nestjs/common'
+import { Controller, Get, HttpCode, Param, Post } from '@nestjs/common'
 import { StoreService } from '../core/store.service.js'
 import { RecomputeService } from '../core/recompute.service.js'
 import { apiError } from '../core/http-error.js'
@@ -8,8 +8,8 @@ import { calculateOverallProgress } from '../../src/utils/requirement.js'
 @Controller('analysis')
 export class AnalysisController {
   constructor(
-    @Inject(StoreService) private readonly store: StoreService,
-    @Inject(RecomputeService) private readonly recompute: RecomputeService,
+    private readonly store: StoreService,
+    private readonly recompute: RecomputeService,
   ) {}
 
   private findingsForProject(projectId: string): AnalysisFinding[] {

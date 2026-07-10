@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, Patch, Post } from '@nestjs/common'
+import { Body, Controller, Get, HttpCode, Param, Patch, Post } from '@nestjs/common'
 import { StoreService } from '../core/store.service.js'
 import { DocumentsService } from '../core/documents.service.js'
 import { apiError } from '../core/http-error.js'
@@ -7,8 +7,8 @@ import type { DocumentTabType } from '../../src/mocks/documentGenerator.js'
 @Controller('documents')
 export class DocumentsController {
   constructor(
-    @Inject(StoreService) private readonly store: StoreService,
-    @Inject(DocumentsService) private readonly documents: DocumentsService,
+    private readonly store: StoreService,
+    private readonly documents: DocumentsService,
   ) {}
 
   @Get('projects/:projectId')

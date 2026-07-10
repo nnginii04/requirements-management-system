@@ -1,4 +1,4 @@
-import { Controller, Get, Inject, Param } from '@nestjs/common'
+import { Controller, Get, Param } from '@nestjs/common'
 import { StoreService } from '../core/store.service.js'
 import { apiError } from '../core/http-error.js'
 import type { DbState, TraceabilityRecord } from '../db/store.js'
@@ -69,7 +69,7 @@ function buildTraceabilityRecord(
 
 @Controller('traceability')
 export class TraceabilityController {
-  constructor(@Inject(StoreService) private readonly store: StoreService) {}
+  constructor(private readonly store: StoreService) {}
 
   @Get('projects/:projectId/matrix')
   matrix(@Param('projectId') projectId: string) {

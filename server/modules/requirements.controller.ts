@@ -4,7 +4,6 @@ import {
   Delete,
   Get,
   HttpCode,
-  Inject,
   Param,
   Patch,
   Post,
@@ -15,7 +14,7 @@ import type { Requirement, RequirementWorkflowStatus } from '../../src/types/dom
 
 @Controller('requirements')
 export class RequirementsController {
-  constructor(@Inject(StoreService) private readonly store: StoreService) {}
+  constructor(private readonly store: StoreService) {}
 
   @Get()
   list() {

@@ -1,4 +1,4 @@
-import { Controller, Get, Inject, Param } from '@nestjs/common'
+import { Controller, Get, Param } from '@nestjs/common'
 import { StoreService } from '../core/store.service.js'
 import { apiError } from '../core/http-error.js'
 import {
@@ -10,7 +10,7 @@ import { calculateOverallProgress } from '../../src/utils/requirement.js'
 
 @Controller('dashboard')
 export class DashboardController {
-  constructor(@Inject(StoreService) private readonly store: StoreService) {}
+  constructor(private readonly store: StoreService) {}
 
   private validationPayload(requirementId: string) {
     const state = this.store.loadDb()

@@ -1,11 +1,11 @@
-import { Body, Controller, Get, Inject, Param, Patch } from '@nestjs/common'
+import { Body, Controller, Get, Param, Patch } from '@nestjs/common'
 import { StoreService } from '../core/store.service.js'
 import { apiError } from '../core/http-error.js'
 import { calculateOverallProgress } from '../../src/utils/requirement.js'
 
 @Controller('projects')
 export class ProjectsController {
-  constructor(@Inject(StoreService) private readonly store: StoreService) {}
+  constructor(private readonly store: StoreService) {}
 
   @Get()
   list() {

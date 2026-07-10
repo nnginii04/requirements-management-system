@@ -1,4 +1,4 @@
-import { Controller, Get, HttpCode, Inject, Param, Post, Query } from '@nestjs/common'
+import { Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common'
 import { StoreService } from '../core/store.service.js'
 import { RecomputeService } from '../core/recompute.service.js'
 import { apiError } from '../core/http-error.js'
@@ -12,8 +12,8 @@ import { enrichMatchesWithSnippets } from '../lib/snippets.js'
 @Controller('validation')
 export class ValidationController {
   constructor(
-    @Inject(StoreService) private readonly store: StoreService,
-    @Inject(RecomputeService) private readonly recompute: RecomputeService,
+    private readonly store: StoreService,
+    private readonly recompute: RecomputeService,
   ) {}
 
   private buildValidationPayload(requirementId: string, state = this.store.loadDb()) {
