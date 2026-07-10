@@ -160,7 +160,7 @@ export async function hydrate(): Promise<DbState> {
       baseline: r.baseline ?? null,
       acceptanceCriteria: (r.acceptanceCriteria as string[]) ?? [],
       implementationScore: r.implementationScore,
-      traceabilityLinks: (r.traceabilityLinks as TraceabilityLink[]) ?? [],
+      traceabilityLinks: (r.traceabilityLinks as unknown as TraceabilityLink[]) ?? [],
       source: r.source ?? undefined,
       tags: (r.tags as string[] | null) ?? undefined,
       relatedFeature: r.relatedFeature ?? undefined,
@@ -202,12 +202,12 @@ export async function hydrate(): Promise<DbState> {
     })),
     validationDetails: validationDetails.map((d) => ({
       requirementId: d.requirementId,
-      matches: d.matches as RequirementValidationDetail['matches'],
+      matches: d.matches as unknown as RequirementValidationDetail['matches'],
       missingLogic: (d.missingLogic as string[]) ?? [],
       aiExplanation: d.aiExplanation,
       acceptanceCriteriaStatus:
-        d.acceptanceCriteriaStatus as RequirementValidationDetail['acceptanceCriteriaStatus'],
-      buildVerification: d.buildVerification as RequirementValidationDetail['buildVerification'],
+        d.acceptanceCriteriaStatus as unknown as RequirementValidationDetail['acceptanceCriteriaStatus'],
+      buildVerification: d.buildVerification as unknown as RequirementValidationDetail['buildVerification'],
     })),
     analysisFindings: analysisFindings.map((f) => ({
       id: f.id,
@@ -236,7 +236,7 @@ export async function hydrate(): Promise<DbState> {
       createdAt: b.createdAt,
       requirements: (b.requirements as string[]) ?? [],
     })),
-    generatedDocuments: generatedDocuments.map((g) => g.payload as GeneratedDocumentRecord),
+    generatedDocuments: generatedDocuments.map((g) => g.payload as unknown as GeneratedDocumentRecord),
     traceabilityRecords: traceabilityRecords.map((t) => ({
       projectId: t.projectId,
       requirementId: t.requirementId,

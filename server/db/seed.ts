@@ -1,4 +1,12 @@
-import { flushDb, hydrate, isHydrated, loadDb, persist, type DbState } from './store.js'
+import {
+  flushDb,
+  hydrate,
+  isHydrated,
+  loadDb,
+  persist,
+  type DbState,
+  type TraceabilityRecord,
+} from './store.js'
 import { enrichMatchesWithSnippets } from '../lib/snippets.js'
 import { scoreFromValidationDetail } from '../lib/scoreEngine.js'
 import { calculateOverallProgress } from '../../src/utils/requirement.js'
@@ -89,7 +97,8 @@ function buildTraceabilityRecords(data: Awaited<ReturnType<typeof loadMockModule
     const scores = detail?.matches.map((m) => m.score) ?? []
     const similarityScore =
       scores.length > 0 ? Math.round((scores.reduce((sum, score) => sum + score, 0) / scores.length) * 100) / 100 : 0
-    const linkStatus = similarityScore >= 0.85 ? 'linked' : similarityScore >= 0.4 ? 'partial' : 'missing'
+    const linkStatus: TraceabilityRecord['linkStatus'] =
+      similarityScore >= 0.85 ? 'linked' : similarityScore >= 0.4 ? 'partial' : 'missing'
 
     return {
       projectId: requirement.projectId,
