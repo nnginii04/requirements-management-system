@@ -1,0 +1,211 @@
+// ReqFlow — MySQL relational schema (Prisma 7)
+// Top-level scalar fields are real columns; deeply-nested arrays/value-objects
+// (traceabilityLinks, validation matches, acceptance criteria, etc.) are Json columns.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model Project {
+  id          String   @id
+  name        String
+  description String   @db.Text
+  createdAt   String
+  progress    Int
+
+  requirements Requirement[]
+  builds       BuildHistory[]
+  documents    Document[]
+
+  @@map("projects")
+}
+
+model User {
+  id             String @id
+  name           String
+  email          String
+  role           String
+  avatarInitials String
+
+  @@map("users")
+}
+
+model Requirement {
+  id                  String  @id
+  projectId           String
+  title               String
+  description         String  @db.Text
+  type                String
+  priority            String
+  status              String
+  owner               String
+  createdAt           String
+  updatedAt           String
+  dueDate             String
+  version             String
+  baseline            String?
+  acceptanceCriteria  Json
+  implementationScore Int
+  traceabilityLinks   Json
+  source              String?
+  tags                Json?
+  relatedFeature      String?
+
+  project  Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  versions RequirementVersion[]
+
+  @@index([projectId])
+  @@map("requirements")
+}
+
+model RequirementVersion {
+  id              String @id
+  requirementId   String
+  version         String
+  changedBy       String
+  changedAt       String
+  changeSummary   String @db.Text
+  previousContent String @db.Text
+  currentContent  String @db.Text
+
+  requirement Requirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  @@index([requirementId])
+  @@map("versions")
+}
+
+model Baseline {
+  id           String @id
+  name         String
+  version      String
+  createdAt    String
+  requirements Json
+
+  @@map("baselines")
+}
+
+model AnalysisFinding {
+  id              String  @id
+  type            String
+  requirementIds  Json
+  description     String  @db.Text
+  severity        String
+  confidence      Float
+  suggestedAction String  @db.Text
+  aiExplanation   String? @db.Text
+  similarityScore Float?
+
+  @@map("analysis_findings")
+}
+
+model BuildHistory {
+  id                  String @id
+  projectId           String
+  buildNumber         Int
+  status              String
+  branch              String
+  commitId            String
+  commitMessage       String @db.Text
+  testResult          String
+  testPassed          Int
+  testTotal           Int
+  requirementProgress Int
+  progressChange      Int
+  changedRequirements Json
+  failedRequirements  Json
+  relatedFiles        Json
+  duration            String
+  createdAt           String
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([buildNumber])
+  @@map("builds")
+}
+
+model RequirementBuildSnapshot {
+  id            Int    @id @default(autoincrement())
+  buildNumber   Int
+  requirementId String
+  progress      Int
+  createdAt     String
+
+  @@index([buildNumber])
+  @@index([requirementId])
+  @@map("snapshots")
+}
+
+model ValidationDetail {
+  requirementId            String @id
+  matches                  Json
+  missingLogic             Json
+  aiExplanation            String @db.Text
+  acceptanceCriteriaStatus Json
+  buildVerification        Json
+
+  @@map("validation_details")
+}
+
+model Document {
+  id                 String @id
+  projectId          String
+  type               String
+  title              String
+  content            String @db.LongText
+  generatedAt        String
+  sourceRequirements Json
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("documents")
+}
+
+model GeneratedDocument {
+  id        String @id
+  projectId String
+  payload   Json
+
+  @@index([projectId])
+  @@map("generated_documents")
+}
+
+model TraceabilityRecord {
+  requirementId    String @id
+  projectId        String
+  requirementTitle String
+  source           String
+  linkedDocuments  Json
+  linkedCodeFiles  Json
+  linkedBuilds     Json
+  linkedTests      Json
+  similarityScore  Float
+  linkStatus       String
+
+  @@index([projectId])
+  @@map("traceability_records")
+}
+
+model WebhookEvent {
+  id        String @id
+  source    String
+  payload   Json
+  createdAt String
+  summary   String @db.Text
+
+  @@map("webhook_events")
+}
+
+model AppState {
+  id              Int    @id @default(1)
+  activeProjectId String
+  currentUserId   String
+
+  @@map("app_state")
+}

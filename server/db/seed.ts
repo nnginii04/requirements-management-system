@@ -1,13 +1,7 @@
-import { existsSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { emptyDb, loadDb, persist, type DbState } from './store.js'
+import { flushDb, hydrate, isHydrated, loadDb, persist, type DbState } from './store.js'
 import { enrichMatchesWithSnippets } from '../lib/snippets.js'
 import { scoreFromValidationDetail } from '../lib/scoreEngine.js'
 import { calculateOverallProgress } from '../../src/utils/requirement.js'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const DB_PATH = join(__dirname, 'reqflow.json')
 
 async function loadMockModules() {
   const [
@@ -130,21 +124,15 @@ function applyMockData(state: DbState, data: Awaited<ReturnType<typeof loadMockM
 }
 
 export async function seedIfEmpty(): Promise<void> {
+  if (!isHydrated()) await hydrate()
   const data = await loadMockModules()
-
-  if (!existsSync(DB_PATH)) {
-    const state = emptyDb()
-    applyMockData(state, data)
-    persist(state)
-    console.log(`[seed] Created DB with ${state.requirements.length} requirements`)
-    return
-  }
 
   const state = loadDb()
   if (state.requirements.length === 0) {
     applyMockData(state, data)
     persist(state)
-    console.log(`[seed] Loaded ${state.requirements.length} requirements`)
+    await flushDb()
+    console.log(`[seed] Seeded MySQL with ${state.requirements.length} requirements`)
     return
   }
 
@@ -191,6 +179,7 @@ export async function seedIfEmpty(): Promise<void> {
 
   if (changed) {
     persist(state)
+    await flushDb()
     console.log('[seed] Backfilled missing collections')
   }
 }
