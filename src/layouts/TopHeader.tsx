@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Sparkles, Download, ChevronDown } from 'lucide-react'
+import { Search, Sparkles, Download, ChevronDown, LogOut } from 'lucide-react'
 import { useApp } from '@/contexts/AppContext'
+import { logout } from '@/api/auth'
 import { cn } from '@/utils/cn'
 import { MobileNav } from '@/layouts/Sidebar'
 
@@ -92,6 +93,15 @@ export function TopHeader() {
                     <span className="ml-1 text-xs text-text-secondary">({u.role})</span>
                   </button>
                 ))}
+                <div className="my-1 h-px bg-border" />
+                <button
+                  type="button"
+                  onClick={() => logout()}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                >
+                  <LogOut className="h-4 w-4" />
+                  로그아웃
+                </button>
               </div>
             )}
           </div>

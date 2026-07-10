@@ -26,11 +26,14 @@ model Project {
 }
 
 model User {
-  id             String @id
+  id             String  @id
   name           String
   email          String
   role           String
   avatarInitials String
+  // bcrypt hash; kept out of the shared User domain type and never returned by
+  // the store. Seeded for demo accounts on first boot.
+  password       String?
 
   @@map("users")
 }

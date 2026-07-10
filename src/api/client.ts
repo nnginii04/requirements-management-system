@@ -22,13 +22,27 @@ import type {
   TraceabilityMatrixItem,
 } from '@/api/types'
 
+import { clearToken, getToken } from '@/api/auth'
+
 const BASE = '/api'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getToken()
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init?.headers,
+    },
     ...init,
   })
+  if (res.status === 401) {
+    clearToken()
+    if (window.location.pathname !== '/login') {
+      window.location.assign('/login')
+    }
+    throw new Error('인증이 필요합니다.')
+  }
   if (!res.ok) {
     const body = await res.text()
     throw new Error(`API ${res.status}: ${body || res.statusText}`)

@@ -1,20 +1,27 @@
-import { Router } from 'express'
-import { loadDb, type DbState, type TraceabilityRecord } from '../db/store.js'
-
-export const traceabilityRouter = Router()
+import { Controller, Get, Param } from '@nestjs/common'
+import { StoreService } from '../core/store.service.js'
+import { apiError } from '../core/http-error.js'
+import type { DbState, TraceabilityRecord } from '../db/store.js'
 
 function computeSimilarityScore(scores: number[]): number {
   if (scores.length === 0) return 0
   return Math.round((scores.reduce((sum, score) => sum + score, 0) / scores.length) * 100) / 100
 }
 
-function buildTraceabilityRecord(requirementId: string, state: DbState): TraceabilityRecord | null {
+function buildTraceabilityRecord(
+  requirementId: string,
+  state: DbState,
+): TraceabilityRecord | null {
   const requirement = state.requirements.find((r) => r.id === requirementId)
   if (!requirement) return null
 
   const detail = state.validationDetails.find((d) => d.requirementId === requirement.id)
   const linkedDocuments = state.documents
-    .filter((doc) => doc.projectId === requirement.projectId && doc.sourceRequirements.includes(requirement.id))
+    .filter(
+      (doc) =>
+        doc.projectId === requirement.projectId &&
+        doc.sourceRequirements.includes(requirement.id),
+    )
     .map((doc) => doc.title)
 
   const linkedCodeFiles = [
@@ -27,12 +34,16 @@ function buildTraceabilityRecord(requirementId: string, state: DbState): Traceab
   const linkedBuilds = [
     ...(detail?.matches.map((m) => `Build #${m.buildNumber}`) ?? []),
     ...state.builds
-      .filter((build) => build.projectId === requirement.projectId && build.changedRequirements.includes(requirement.id))
+      .filter(
+        (build) =>
+          build.projectId === requirement.projectId &&
+          build.changedRequirements.includes(requirement.id),
+      )
       .map((build) => `Build #${build.buildNumber}`),
   ].filter((value, index, arr) => arr.indexOf(value) === index)
 
   const linkedTests = [
-    ...(detail?.matches.map((m) => m.testCase).filter(Boolean) as string[] ?? []),
+    ...((detail?.matches.map((m) => m.testCase).filter(Boolean) as string[]) ?? []),
     ...requirement.traceabilityLinks
       .filter((link) => link.targetType === 'test')
       .map((link) => link.targetId),
@@ -56,18 +67,25 @@ function buildTraceabilityRecord(requirementId: string, state: DbState): Traceab
   }
 }
 
-traceabilityRouter.get('/projects/:projectId/matrix', (req, res) => {
-  const state = loadDb()
-  const requirements = state.requirements.filter((r) => r.projectId === req.params.projectId)
-  const matrix = requirements
-    .map((requirement) => buildTraceabilityRecord(requirement.id, state))
-    .filter((item): item is TraceabilityRecord => item !== null)
+@Controller('traceability')
+export class TraceabilityController {
+  constructor(private readonly store: StoreService) {}
 
-  res.json({ data: matrix })
-})
+  @Get('projects/:projectId/matrix')
+  matrix(@Param('projectId') projectId: string) {
+    const state = this.store.loadDb()
+    const requirements = state.requirements.filter((r) => r.projectId === projectId)
+    const matrix = requirements
+      .map((requirement) => buildTraceabilityRecord(requirement.id, state))
+      .filter((item): item is TraceabilityRecord => item !== null)
 
-traceabilityRouter.get('/requirements/:requirementId', (req, res) => {
-  const record = buildTraceabilityRecord(req.params.requirementId, loadDb())
-  if (!record) return res.status(404).json({ error: 'Requirement not found' })
-  res.json({ data: record })
-})
+    return { data: matrix }
+  }
+
+  @Get('requirements/:requirementId')
+  forRequirement(@Param('requirementId') requirementId: string) {
+    const record = buildTraceabilityRecord(requirementId, this.store.loadDb())
+    if (!record) throw apiError(404, 'Requirement not found')
+    return { data: record }
+  }
+}

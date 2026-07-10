@@ -2,10 +2,57 @@
 
 AI 기반 요구사항 관리 · 구현 검증 · 추적성 관리 PoC
 
-React 프론트엔드와 Express REST API, JSON DB 영속화를 결합한 **API-first Requirements Engineering Platform**입니다.  
+React 프론트엔드와 **NestJS REST API**, **MySQL(Prisma) 영속화**를 결합한 **API-first Requirements Engineering Platform**입니다.  
 대시보드 집계, AI 분석 재계산, 구현 검증, Traceability Matrix, Jenkins 빌드 시뮬레이션까지 하나의 시연 흐름으로 연결됩니다.
 
-> 점수·분석·검증 결과는 모두 **Estimated Implementation Score / AI 추정치**이며, 실제 구현 완료를 보장하지 않습니다.
+> 점수·분석·검증 결과는 모두 **Estimated Implementation Score / AI 추정치(규칙 기반 heuristic)**이며, 실제 구현 완료를 보장하지 않습니다.
+
+<p>
+  <a href="https://github.com/nnginii04/requirements-management-system/actions/workflows/ci.yml"><img src="https://github.com/nnginii04/requirements-management-system/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/React-18-149ECA?logo=react&logoColor=white" alt="React 18">
+  <img src="https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs&logoColor=white" alt="NestJS 11">
+  <img src="https://img.shields.io/badge/Prisma-7-2D3748?logo=prisma&logoColor=white" alt="Prisma 7">
+  <img src="https://img.shields.io/badge/MySQL-8-4479A1?logo=mysql&logoColor=white" alt="MySQL 8">
+  <img src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" alt="TypeScript 5">
+</p>
+
+---
+
+## 미리보기
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/login.png" alt="Login"><br/><sub><b>Login</b> — JWT 인증 · 데모 원클릭 로그인</sub></td>
+    <td width="50%"><img src="docs/screenshots/documents.png" alt="Documents"><br/><sub><b>Documents</b> — SRS/PRD/BRS 생성·품질 점검</sub></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/validation.png" alt="Validation"><br/><sub><b>Validation</b> — 코드 유사도·추정 구현 점수</sub></td>
+    <td width="50%"><img src="docs/screenshots/analysis.png" alt="Analysis"><br/><sub><b>AI Analysis</b> — 중복/충돌/누락 findings</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/build-history.png" alt="Build History"><br/><sub><b>Build History</b> — Jenkins 빌드·진척 타임라인</sub></td>
+    <td width="50%"><img src="docs/screenshots/requirements.png" alt="Requirements"><br/><sub><b>Requirements</b> — CRUD·버전·추적성</sub></td>
+  </tr>
+</table>
+
+---
+
+## 엔지니어링 하이라이트
+
+포트폴리오 관점에서 이 프로젝트가 보여주는 것:
+
+- **타입 안전 풀스택** — React + NestJS + Prisma를 하나의 TypeScript 모노레포로. 도메인 타입([`src/types/domain.ts`](src/types/domain.ts))을 프론트·백엔드가 공유.
+- **정통 NestJS 아키텍처** — 모듈 · 컨트롤러 · DI 프로바이더 · 전역 예외 필터 · 로깅 인터셉터 · `ValidationPipe` DTO 검증.
+- **JWT 인증** — 로그인 · 전역 `JwtAuthGuard`(+`@Public()`) · bcrypt 해시 자격증명 · 프론트 라우트 보호. 데모 계정으로 즉시 체험 가능.
+- **관계형 DB 설계** — 14개 테이블 스키마, 버전 관리되는 Prisma 마이그레이션, 부팅 시 hydrate → 메모리 캐시 → write-back.
+- **테스트 · CI** — 핵심 점수/상태 heuristic에 대한 vitest 유닛 테스트 + Playwright E2E, GitHub Actions에서 typecheck · build · test · e2e(MySQL 서비스 컨테이너) 자동 실행.
+- **API 문서** — `@nestjs/swagger` 기반 라이브 문서 (`/api/docs`).
+- **명시적 기술 결정** — 데코레이터 메타데이터를 위해 실행기를 SWC로 선정하는 등, 선택의 근거를 코드·문서에 남김.
 
 ---
 
@@ -20,10 +67,36 @@ React 프론트엔드와 Express REST API, JSON DB 영속화를 결합한 **API-
 | **Build History** | Jenkins 빌드 이력, 시뮬레이션, 요구사항별 진척 스냅샷 |
 | **Documents** | SRS / PRD / BRS 생성 및 품질 점검 |
 | **Integrations** | GitHub / Jenkins webhook PoC, 빌드 기반 점수 갱신 |
+| **Auth** | JWT 로그인, 라우트 보호, bcrypt 자격증명, 데모 계정 원클릭 로그인 |
 
 ---
 
 ## 빠른 시작
+
+### 0. MySQL 준비 (최초 1회)
+
+API는 MySQL에 데이터를 영속합니다. 로컬 MySQL을 띄우고 DB를 만든 뒤, 접속 정보를 `.env`에 설정합니다.
+
+```bash
+# Homebrew 기준 예시
+brew services start mysql
+mysql -u root -e "CREATE DATABASE IF NOT EXISTS reqflow CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+```
+
+`.env` (커밋 제외됨):
+
+```bash
+DATABASE_URL="mysql://root@localhost:3306/reqflow"
+```
+
+스키마를 DB에 반영하고 Prisma 클라이언트를 생성합니다.
+
+```bash
+npx prisma migrate deploy   # 마이그레이션 적용 (테이블 생성)
+npx prisma generate         # Prisma Client 생성 (generated/prisma)
+```
+
+> 최초 API 실행 시 테이블이 비어 있으면 `src/mocks/data/*`에서 자동 시드됩니다.
 
 ### 1. 의존성 설치
 
@@ -46,6 +119,8 @@ npm run dev:all
 | API | http://localhost:3001 |
 | Health check | http://localhost:3001/api/health |
 | OpenAPI | http://localhost:3001/api/openapi.json |
+
+> **로그인**: 첫 화면에서 **"데모 계정으로 바로 시작"** 버튼을 누르면 즉시 입장합니다. (계정: `yejin.jung@company.com` / `demo1234`)
 
 ### 3. 따로 실행
 
@@ -97,13 +172,15 @@ Global State (AppContext, RequirementsContext)
   ↓
 API Client + Utils (src/api, src/utils/*Api.ts)
   ↓  /api (Vite proxy → :3001)
-Express Server (server/index.ts)
+NestJS Server (server/main.ts → AppModule)
   ↓
-Routes (server/routes/*)
+Controllers (server/modules/*)
   ↓
-Services (server/services/recompute.ts, jenkins.ts, documents.ts)
+Core Services (server/core/*: Store / Recompute / Jenkins / Documents)
   ↓
-JSON DB (server/db/reqflow.json)
+Store (in-memory 캐시, MySQL에서 hydrate)
+  ↓
+MySQL (Prisma) — server/db/store.ts ↔ generated/prisma
   ↓
 Frontend 화면 갱신 (refresh / reload)
 ```
@@ -112,8 +189,8 @@ Frontend 화면 갱신 (refresh / reload)
 
 1. 프론트는 **API 연결 시 서버 데이터를 우선** 사용합니다.
 2. API 실패·오프라인 시 `src/mocks`로 **fallback** 합니다.
-3. 재분석/재검증/빌드 시뮬레이션 결과는 **JSON DB에 영속 저장**됩니다.
-4. 새로고침 후에도 서버를 통해 저장된 결과는 유지됩니다.
+3. 재분석/재검증/빌드 시뮬레이션 결과는 **MySQL에 영속 저장**됩니다. (서버는 부팅 시 MySQL에서 상태를 메모리 캐시로 hydrate하고, 변경 시 캐시를 갱신한 뒤 MySQL로 write-back 합니다.)
+4. 새로고침·서버 재시작 후에도 저장된 결과는 유지됩니다.
 
 ---
 
@@ -144,7 +221,7 @@ Elicitation → Analysis → Specification → Validation → Tracking
 5. **Validation** → 재검증 후 점수·Missing Logic·AI 설명 확인
 6. **Build History** → 빌드 시뮬레이션 실행
 7. **Dashboard** → Build Timeline 반영 확인
-8. **새로고침** → JSON DB 저장 결과 유지 확인
+8. **새로고침 · 서버 재시작** → MySQL 저장 결과 유지 확인
 
 ---
 
@@ -191,22 +268,29 @@ Elicitation → Analysis → Specification → Validation → Tracking
 
 | 경로 | 역할 |
 |------|------|
-| `index.ts` | Express 앱 부트, 라우터 마운트, seed 실행 |
-| `routes/` | REST API 라우트 |
+| `main.ts` | NestFactory 부트, `/api` 글로벌 프리픽스, CORS, 서버 리슨 |
+| `app.module.ts` | 루트 모듈 (CoreModule import + 컨트롤러 등록) |
+| `modules/` | 도메인별 NestJS 컨트롤러 (requirements, validation, dashboard 등) |
+| `core/` | `@Global` CoreModule — Store/Recompute/Jenkins/Documents `@Injectable` 서비스 |
+| `core/store.service.ts` | Store 파사드 (`OnModuleInit`에서 hydrate + seed) |
+| `core/http-error.ts` | `{ error }` 응답 형태 보존 헬퍼 |
 | `services/recompute.ts` | analysis / validation 재계산, traceability sync |
 | `services/jenkins.ts` | 빌드 처리, snapshot·점수 갱신, webhook 연동 |
 | `services/documents.ts` | 문서 생성·품질 점검 |
 | `lib/scoreEngine.ts` | implementation score 계산 |
 | `lib/snippets.ts` | validation match용 코드 스니펫 보강 |
-| `db/store.ts` | JSON DB load / persist / mutate |
-| `db/seed.ts` | 최초 실행 시 mock 데이터 시드 |
-| `db/reqflow.json` | 영속 데이터 저장소 |
+| `db/store.ts` | MySQL hydrate → 메모리 캐시, mutate/persist write-back |
+| `db/prisma.ts` | Prisma Client 싱글턴 (mariadb driver adapter) |
+| `db/seed.ts` | DB가 비어 있으면 mock 데이터 시드 |
+| `prisma/schema.prisma` | MySQL 스키마 (14개 테이블) |
 
 ---
 
-## JSON DB (`server/db/reqflow.json`)
+## 데이터베이스 (MySQL · Prisma)
 
-| 컬렉션 | 용도 |
+스키마는 [`prisma/schema.prisma`](prisma/schema.prisma)에 정의된 14개 테이블입니다. 최상위 스칼라 필드는 컬럼으로, 중첩 배열·객체(traceabilityLinks, validation matches 등)는 JSON 컬럼으로 저장됩니다. 강제 외래키는 4개(`requirements→projects`, `versions→requirements`, `builds→projects`, `documents→projects`)이며, 나머지 관계는 애플리케이션 레벨 규약입니다.
+
+| 테이블 / 컬렉션 | 용도 |
 |--------|------|
 | `projects` | 멀티 프로젝트, 활성 프로젝트 |
 | `users` | 담당자, 현재 사용자 |
@@ -223,7 +307,7 @@ Elicitation → Analysis → Specification → Validation → Tracking
 | `webhookEvents` | GitHub/Jenkins webhook 이벤트 로그 |
 | `activeProjectId` / `currentUserId` | 세션 상태 |
 
-최초 API 서버 실행 시 `src/mocks/data/*`에서 시드되며, 이후 CRUD·recompute·build 결과는 JSON 파일에 저장됩니다.
+최초 API 서버 실행 시 테이블이 비어 있으면 `src/mocks/data/*`에서 시드되며, 이후 CRUD·recompute·build 결과는 MySQL에 저장됩니다. 데이터는 `npx prisma studio`로 GUI 확인이 가능합니다.
 
 ---
 
@@ -231,12 +315,17 @@ Elicitation → Analysis → Specification → Validation → Tracking
 
 프론트는 API 연결 시 아래 엔드포인트를 우선 사용하고, 실패 시 `src/mocks`로 fallback합니다.
 
-### Health / Meta
+### Health / Meta / Auth
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| GET | `/api/health` | 헬스체크 |
-| GET | `/api/openapi.json` | OpenAPI 3.0 스펙 |
+| GET | `/api/health` | 헬스체크 (public) |
+| GET | `/api/openapi.json` | OpenAPI 3.0 스펙 (public) |
+| GET | `/api/docs` | Swagger UI |
+| POST | `/api/auth/login` | 로그인 → JWT 발급 (public) |
+| GET | `/api/auth/me` | 현재 인증 사용자 |
+
+> `/api/health`·`/api/openapi.json`·`/api/auth/login`을 제외한 모든 엔드포인트는 `Authorization: Bearer <token>`이 필요합니다.
 
 ### Projects / Users / Session
 
@@ -348,19 +437,38 @@ UI에서 데이터 출처를 구분할 수 있습니다.
 |----------|------|
 | `npm run dev:all` | 프론트 + API 동시 실행 (권장) |
 | `npm run dev` | Vite 프론트만 |
-| `npm run dev:api` | Express API만 (포트 3001) |
+| `npm run dev:api` | NestJS API만 (포트 3001) |
 | `npm run build` | TypeScript 빌드 + Vite 프로덕션 빌드 |
+| `npm run typecheck` | 프론트(`tsc -b`) + 서버(`tsc -p tsconfig.server.json`) 타입체크 |
 | `npm run preview` | 빌드 결과 미리보기 |
-| `npm run test:e2e` | Playwright smoke 테스트 |
+| `npm test` | vitest 유닛 테스트 (점수·상태 heuristic) |
+| `npm run test:watch` | vitest 워치 모드 |
+| `npm run test:e2e` | Playwright E2E (dev:all 자동 기동) |
 | `npm run test:e2e:ui` | Playwright UI 모드 |
 
 ---
 
-## E2E 테스트
+## 테스트
 
 ```bash
+npm test                       # 유닛 (vitest) — 핵심 heuristic 로직
 npx playwright install chromium
-npm run test:e2e
+npm run test:e2e               # E2E (Playwright) — 실제 화면 렌더링
+```
+
+- **유닛**: [`src/utils/*.test.ts`](src/utils), [`server/lib/scoreEngine.test.ts`](server/lib/scoreEngine.test.ts) — 유사도 평균, 60/40 점수 블렌딩, 상태 임계값 등.
+- **E2E**: [`e2e/smoke.spec.ts`](e2e/smoke.spec.ts) — 주요 페이지 렌더링 + API 헬스체크.
+- **CI**: 푸시·PR마다 [GitHub Actions](.github/workflows/ci.yml)에서 typecheck · build · unit · e2e(MySQL 서비스 컨테이너) 자동 실행.
+
+---
+
+## API 문서 (Swagger)
+
+API 서버 실행 후 브라우저에서 라이브 문서를 확인할 수 있습니다.
+
+```
+http://localhost:3001/api/docs        # Swagger UI
+http://localhost:3001/api/docs-json   # OpenAPI JSON
 ```
 
 ---
@@ -381,7 +489,7 @@ npm run test:e2e
 ## 현재 한계 (PoC)
 
 - 실제 LLM / 임베딩 모델은 미연동 (규칙·heuristic 기반 recompute)
-- JSON DB 기반 (운영용 RDB/트랜잭션 없음)
+- MySQL 영속화는 변경 시마다 전체 상태를 트랜잭션으로 재기록하는 방식 (PoC 규모용, 대량 데이터엔 엔티티별 update 최적화 필요)
 - 코드 스니펫은 저장소 추출이 아닌 PoC용 보강 데이터
 - webhook 인증·서명 검증 없음
 - 일부 UI 패널은 아직 mock 직접 참조가 남아 있음 (예: Requirements 우측 AI 분석 패널)
@@ -391,7 +499,7 @@ npm run test:e2e
 
 ## 로드맵
 
-- [x] Phase A REST API (`server/`, JSON DB)
+- [x] Phase A REST API (`server/`, NestJS + MySQL/Prisma)
 - [x] Dashboard aggregate API
 - [x] Analysis / Validation recompute API
 - [x] Traceability API
@@ -400,8 +508,12 @@ npm run test:e2e
 - [x] 변경 영향 분석
 - [x] OpenAPI v1
 - [x] 다중 프로젝트 / 워크스페이스
-- [x] E2E 테스트 (Playwright smoke)
-- [ ] 사용자 인증 (SSO/OAuth)
+- [x] E2E 테스트 (Playwright) + 유닛 테스트 (vitest)
+- [x] CI 파이프라인 (GitHub Actions)
+- [x] Express → NestJS 마이그레이션 (DI · DTO 검증 · Swagger)
+- [x] JSON 파일 → MySQL/Prisma (버전 관리 마이그레이션)
+- [x] JWT 인증 (로그인 · 가드 · bcrypt · 라우트 보호)
+- [ ] SSO / OAuth 연동
 - [ ] AI 임베딩·유사도 엔진 실연동
 - [ ] 명세서 PDF/Word export
 - [ ] 실시간 빌드 알림
@@ -417,11 +529,12 @@ npm run test:e2e
 - lucide-react, recharts
 
 **Backend**
-- Express 4, cors, tsx
-- JSON file persistence (`server/db/reqflow.json`)
+- NestJS 11 (platform-express, ESM) — 실행기 SWC(`@swc-node/register`)로 데코레이터 메타데이터·타입 DI 지원
+- MySQL 8 + Prisma 7 (mariadb driver adapter), 버전 관리 마이그레이션, 부팅 시 hydrate → 메모리 캐시 → write-back
+- class-validator DTO 검증, 전역 예외 필터·로깅 인터셉터, `@nestjs/config` 환경 검증, `@nestjs/swagger`
 
-**Testing**
-- Playwright
+**Testing / CI**
+- vitest (유닛), Playwright (E2E), GitHub Actions (typecheck · build · test · e2e)
 
 ---
 
