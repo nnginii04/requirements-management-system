@@ -1,0 +1,13 @@
+node_modules
+dist
+generated
+.git
+.env
+.env.local
+spring-petclinic-rest
+e2e
+playwright-report
+test-results
+*.log
+.DS_Store
+tsconfig.tsbuildinfo

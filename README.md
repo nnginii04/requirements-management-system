@@ -32,6 +32,24 @@ cd 요구사항
 npm install
 ```
 
+### 1-1. 환경 변수 · DB 준비
+
+API 서버는 MySQL/MariaDB 를 사용합니다. `.env` 가 없으면 부팅 시 종료됩니다.
+
+```bash
+cp .env.example .env      # DATABASE_URL 을 채우세요
+
+# 로컬 DB 가 없다면 Docker 로 하나 띄웁니다
+docker run -d --name reqflow-mysql \
+  -e MYSQL_ROOT_PASSWORD=reqflow -e MYSQL_DATABASE=reqflow \
+  -p 3307:3306 mysql:8.4
+# → DATABASE_URL="mysql://root:reqflow@localhost:3307/reqflow"
+
+npm run db:migrate        # 스키마 적용 + Prisma 클라이언트 생성
+```
+
+최초 API 실행 시 `src/mocks/data/*` 에서 시드 데이터가 자동 적재됩니다.
+
 ### 2. 프론트 + API 함께 실행 (권장)
 
 ```bash
@@ -80,8 +98,75 @@ export PATH="$HOME/.local/node/bin:$PATH"
 ### 프로덕션 빌드
 
 ```bash
-npm run build
-npm run preview
+npm run build   # prisma generate → tsc → vite build (dist/ 생성)
+npm start       # prisma migrate deploy → API + dist/ 를 한 프로세스로 서빙
+```
+
+`NODE_ENV=production` 에서는 Express 가 `dist/` 를 함께 서빙하므로 프론트와 API 가
+같은 오리진에 놓입니다 (`src/api/client.ts` 의 `BASE = '/api'` 가 상대경로이므로
+이 구성이 기본값입니다).
+
+---
+
+## 배포
+
+React SPA · Express API · MySQL 세 덩어리를 **컨테이너 하나 + 관리형 DB** 로 올리는
+단일 호스트 구성입니다. Railway / Render / Fly.io 처럼 Dockerfile 을 그대로 빌드해 주는
+곳이면 동일하게 동작합니다.
+
+```
+[ 호스팅 ]  Node 컨테이너 1개
+              ├ /api/*  → Express 라우터
+              └ /*      → dist/ (SPA fallback)
+[ 관리형 MySQL ]
+```
+
+### 1. DB 생성
+
+호스팅에서 MySQL 인스턴스를 만들고 접속 문자열을 받아둡니다.
+
+### 2. 환경 변수
+
+| 변수 | 필수 | 설명 |
+|------|------|------|
+| `DATABASE_URL` | ✅ | `mysql://user:password@host:3306/db` |
+| `NODE_ENV` | ✅ | `production` — dist 서빙 + CORS 차단 |
+| `PORT` | — | 호스팅이 자동 주입 (기본 3001) |
+| `BASIC_AUTH_USER` | 권장 | Basic Auth 계정 |
+| `BASIC_AUTH_PASSWORD` | 권장 | Basic Auth 비밀번호 |
+| `CORS_ORIGINS` | — | 프론트를 다른 도메인에 분리 배포할 때만 (쉼표 구분) |
+
+> **앱 자체에는 로그인 기능이 없습니다.** 공개 URL 로 올린다면
+> `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD` 를 반드시 설정하세요. 설정하면
+> `/api/health` 를 제외한 모든 요청에 Basic Auth 가 걸립니다 (헬스체크는 통과).
+
+### 3. 배포
+
+Dockerfile 을 감지하는 호스팅이면 저장소를 연결하는 것으로 끝납니다.
+빌드 커맨드를 직접 지정해야 한다면:
+
+| 항목 | 값 |
+|------|-----|
+| Build | `npm ci && npm run build` |
+| Start | `npm start` |
+| Health check path | `/api/health` |
+
+`npm start` 가 `prisma migrate deploy` 를 먼저 실행하므로 스키마는 배포할 때마다
+자동으로 최신 상태가 됩니다.
+
+### 로컬에서 프로덕션 구성 그대로 확인
+
+```bash
+docker build -t reqflow:local .
+docker network create reqflow-net
+docker network connect reqflow-net reqflow-mysql
+
+docker run --rm --name reqflow-app --network reqflow-net -p 8080:3001 \
+  -e NODE_ENV=production \
+  -e DATABASE_URL="mysql://root:reqflow@reqflow-mysql:3306/reqflow" \
+  -e BASIC_AUTH_USER=demo -e BASIC_AUTH_PASSWORD=reqflow-demo \
+  reqflow:local
+# → http://localhost:8080 (demo / reqflow-demo)
 ```
 
 ---
@@ -349,8 +434,12 @@ UI에서 데이터 출처를 구분할 수 있습니다.
 | `npm run dev:all` | 프론트 + API 동시 실행 (권장) |
 | `npm run dev` | Vite 프론트만 |
 | `npm run dev:api` | Express API만 (포트 3001) |
-| `npm run build` | TypeScript 빌드 + Vite 프로덕션 빌드 |
-| `npm run preview` | 빌드 결과 미리보기 |
+| `npm run build` | Prisma generate + TypeScript 빌드 + Vite 프로덕션 빌드 |
+| `npm start` | 프로덕션 실행 — migrate deploy 후 API + `dist/` 서빙 |
+| `npm run preview` | 빌드 결과 미리보기 (Vite) |
+| `npm run db:migrate` | 개발용 마이그레이션 생성·적용 (`prisma migrate dev`) |
+| `npm run db:deploy` | 배포용 마이그레이션 적용 (`prisma migrate deploy`) |
+| `npm run db:generate` | Prisma 클라이언트 재생성 |
 | `npm run test:e2e` | Playwright smoke 테스트 |
 | `npm run test:e2e:ui` | Playwright UI 모드 |
 

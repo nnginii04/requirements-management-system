@@ -3,7 +3,9 @@ import { test, expect } from '@playwright/test'
 test.describe('ReqFlow smoke', () => {
   test('dashboard loads with project title', async ({ page }) => {
     await page.goto('/dashboard')
-    await expect(page.getByRole('heading', { name: '엔터프라이즈 사용자 포털' })).toBeVisible()
+    await expect(
+      page.getByRole('main').getByRole('heading', { name: '엔터프라이즈 사용자 포털' }),
+    ).toBeVisible()
   })
 
   test('requirements page shows list', async ({ page }) => {
@@ -19,7 +21,7 @@ test.describe('ReqFlow smoke', () => {
   test('settings page shows project info', async ({ page }) => {
     await page.goto('/settings')
     await expect(page.getByText('프로젝트 정보')).toBeVisible()
-    await expect(page.getByText('정예진')).toBeVisible()
+    await expect(page.getByRole('main').getByText('정예진')).toBeVisible()
   })
 
   test('API health endpoint responds', async ({ request }) => {

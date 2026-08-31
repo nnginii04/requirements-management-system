@@ -1,10 +1,17 @@
 node_modules/
 .env
 .env.local
-dist/
-build/
+/dist/
+/build/
 .DS_Store
 tsconfig.tsbuildinfo
 server/db/reqflow.json
 
 /generated/prisma
+
+# spring-petclinic-rest 는 별도 저장소를 클론한 것이라 추적하지 않습니다
+/spring-petclinic-rest/
+
+# Playwright 산출물
+/test-results/
+/playwright-report/
